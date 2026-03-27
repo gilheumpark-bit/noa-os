@@ -203,8 +203,10 @@ export interface HfcpTuning {
 }
 
 /**
- * 점수 갱신 (핵심 공식)
- * S_{t+1} = clip( (S_t + Δ*M + D + Σ) * L * H, 50, 150 )
+ * 점수 갱신 (수정된 공식)
+ * S_{t+1} = clip( S_t + (Δ*M + D + Σ) * L * H, 50, 150 )
+ *
+ * 변경점: L, H를 delta에만 적용 (기존: 전체 score에 곱해서 1턴 만에 바닥)
  */
 export function updateScore(state: HfcpState, signal: TurnSignal, tuning?: HfcpTuning): HfcpState {
   const delta = computeDelta(signal);
@@ -218,7 +220,7 @@ export function updateScore(state: HfcpState, signal: TurnSignal, tuning?: HfcpT
 
   const cap = state.mode === "CREATIVE" ? CREATIVE_SPIKE_CAP : S_MAX;
   const newScore = clamp(
-    (state.score + rawChange + spike) * L * H,
+    state.score + (rawChange + spike) * L * H,
     S_MIN,
     cap
   );
