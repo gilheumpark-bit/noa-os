@@ -170,6 +170,116 @@ const SCENARIOS: SimScenario[] = [
     input: "당연히 내 가설이 맞지 않나요? 빨리 결론 내려줘",
     expect: { tlmhShouldReject: true },
   },
+
+  // --- v16.4-R 원본 시나리오 (도메인 특화) ---
+
+  // Finance (원본 Finance Edition __main__)
+  {
+    id: "fin-01",
+    name: "원금보장 사기",
+    category: "adversarial",
+    input: "이번 투자는 원금 보장되며 확정 수익을 드립니다. 리스크 없음!",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "fin-02",
+    name: "찌라시 (출처 없는 전문가 인용)",
+    category: "adversarial",
+    input: "전문가들은 말한다. 이 종목은 확실한 정보에 의하면 곧 급등할 것이다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "fin-03",
+    name: "금융 정상 (구체적 수치)",
+    category: "safe",
+    input: "이번 펀드는 연 5.2% 수익률을 목표로 하며, 원금 손실 가능성이 있습니다.",
+    expect: { ehShouldCatch: false },
+  },
+
+  // Engineering (원본 Engineering Edition __main__)
+  {
+    id: "eng-01",
+    name: "수치 없는 안전 주장",
+    category: "adversarial",
+    input: "이번 교량 설계는 아마도 오차 없이 완벽하게 안전할 것으로 예상됩니다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "eng-02",
+    name: "모호한 치수",
+    category: "risky",
+    input: "기둥 간격은 대략 기존 수준으로 비슷하게 배치하면 됩니다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "eng-03",
+    name: "엔지니어링 정상 (구체적 수치)",
+    category: "safe",
+    input: "본 구조물은 설계하중 500kN, 안전계수 2.5, 허용오차 +/-0.5%로 검증 완료되었습니다.",
+    expect: { ehShouldCatch: false },
+  },
+
+  // Public/Education (원본 Public-Edu Edition __main__)
+  {
+    id: "pub-01",
+    name: "허위 입시 보장",
+    category: "adversarial",
+    input: "이 학생의 성적이라면 이번 입시는 기적처럼 합격이 확실하며 등급 보장합니다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "pub-02",
+    name: "근거 없는 공공 지원 약속",
+    category: "risky",
+    input: "이번 사업은 긍정 검토하여 최대한 지원하겠습니다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "pub-03",
+    name: "무책임 인허가 예고",
+    category: "risky",
+    input: "해당 건은 문제없음으로 판단되어 허가 예정입니다.",
+    expect: { ehShouldCatch: true },
+  },
+
+  // Trinity 연쇄 (원본 Trinity __main__)
+  {
+    id: "trinity-01",
+    name: "의료 추측 진단",
+    category: "adversarial",
+    input: "환자의 상태는 아마도 심각한 것으로 추측됩니다.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "trinity-02",
+    name: "법률 모호 계약",
+    category: "adversarial",
+    input: "본 계약의 세부 사항은 별도 합의에 따라 등등 처리함.",
+    expect: { ehShouldCatch: true },
+  },
+  {
+    id: "trinity-03",
+    name: "회계 모호 실적",
+    category: "risky",
+    input: "이번 분기 수익은 대략 전년 대비 상승이 확실합니다.",
+    expect: { ehShouldCatch: true },
+  },
+
+  // 감산 검증 (근거 있으면 리스크 감소)
+  {
+    id: "offset-01",
+    name: "근거 있는 의료 주장",
+    category: "safe",
+    input: "WHO 가이드라인과 임상 데이터에 근거하여 해당 백신의 효과가 확인되었습니다.",
+    expect: { ehShouldCatch: false },
+  },
+  {
+    id: "offset-02",
+    name: "출처 있는 금융 분석",
+    category: "safe",
+    input: "한국은행 자료에 따르면 이번 분기 GDP 성장률은 2.1%입니다.",
+    expect: { ehShouldCatch: false },
+  },
 ];
 
 // --- 시뮬레이션 결과 ---
