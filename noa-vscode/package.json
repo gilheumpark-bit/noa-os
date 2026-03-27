@@ -1,0 +1,135 @@
+{
+  "name": "noa-clothing-framework",
+  "displayName": "NOA Clothing Framework",
+  "description": "AI한테 입히는 옷 — .noa 파일로 AI 페르소나, 정책, 행동 규칙을 정의하고 컴파일",
+  "version": "0.1.0",
+  "publisher": "noa-os",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:noa",
+    "onCommand:noa.wear",
+    "onCommand:noa.strip",
+    "onCommand:noa.swap",
+    "onCommand:noa.compile",
+    "onCommand:noa.export",
+    "onCommand:noa.explain"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "noa",
+        "aliases": [
+          "NOA",
+          "noa"
+        ],
+        "extensions": [
+          ".noa"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "noa",
+        "scopeName": "source.noa",
+        "path": "./syntaxes/noa.tmLanguage.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.noa",
+        "url": "./schemas/noa-schema.json"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "noa-explorer",
+          "title": "NOA Clothing",
+          "icon": "$(person)"
+        }
+      ]
+    },
+    "views": {
+      "noa-explorer": [
+        {
+          "id": "noaWardrobe",
+          "name": "Wardrobe",
+          "type": "tree"
+        },
+        {
+          "id": "noaLayerStack",
+          "name": "Active Layers",
+          "type": "tree"
+        }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "noa.chatParticipant",
+        "name": "noa",
+        "fullName": "NOA Clothing",
+        "description": "AI 페르소나 관리 — wear, strip, swap, explain, status",
+        "isSticky": false
+      }
+    ],
+    "commands": [
+      {
+        "command": "noa.wear",
+        "title": "NOA: Wear Persona",
+        "category": "NOA"
+      },
+      {
+        "command": "noa.strip",
+        "title": "NOA: Strip Persona",
+        "category": "NOA"
+      },
+      {
+        "command": "noa.swap",
+        "title": "NOA: Swap Persona",
+        "category": "NOA"
+      },
+      {
+        "command": "noa.compile",
+        "title": "NOA: Compile & Preview",
+        "category": "NOA"
+      },
+      {
+        "command": "noa.export",
+        "title": "NOA: Export Artifact",
+        "category": "NOA"
+      },
+      {
+        "command": "noa.explain",
+        "title": "NOA: Explain Rules",
+        "category": "NOA"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "npm run build -- --watch",
+    "lint": "eslint src --ext ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  },
+  "dependencies": {
+    "yaml": "^2.3.0",
+    "zod": "^3.22.0"
+  }
+}

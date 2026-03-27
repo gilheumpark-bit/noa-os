@@ -1,0 +1,451 @@
+/**
+ * 세션 상태 관리 — wear / strip / swap 상태 머신.
+ * 활성 레이어 스택을 관리하고 7개 엔진 상태를 유지.
+ */
+
+import { parseNoaSource, type NoaSourceFile } from "../compiler/parse";
+import { normalizeAll } from "../compiler/normalize";
+import { mergeLayers } from "../compiler/merge";
+import { resolve, type ResolvedNoaProfile } from "../compiler/resolve";
+import { validate } from "../compiler/validate";
+import { buildProvenanceGraph, type ProvenanceGraph } from "../compiler/explain";
+import { exportAll, type ExportArtifact } from "../compiler/export";
+import type { NoaDiagnostic } from "../schema/errors";
+import {
+  createInitialState as createHfcpState,
+  updateScore,
+  determineVerdict,
+  type HfcpState,
+  type TurnSignal,
+  type HfcpMode,
+  type HfcpTuning,
+} from "../engines/hfcp";
+import {
+  detect as ehDetect,
+  type EhDetectionResult,
+  type EhConfig,
+  type EhTuning,
+  Domain,
+  ConfidenceLevel,
+} from "../engines/eh-detector";
+import {
+  processHcrfTurn,
+  createInitialHcrfState,
+  createAuditEvent,
+  type HcrfState,
+  OutputVerdict,
+  HcrfMode,
+} from "../engines/hcrf";
+import {
+  OcfpEngine,
+  type InteractionGate,
+  type RiskAssessment,
+} from "../engines/ocfp";
+import {
+  processTlmhTurn,
+  createInitialTlmhState,
+  type TlmhState,
+  type TlmhProcessResult,
+} from "../engines/tlmh";
+import {
+  Sovereign27,
+  type Verdict as SovereignVerdict,
+} from "../engines/sovereign";
+import { AegisLedger } from "../engines/ledger";
+import { AccessoryManager } from "./accessories";
+
+// --- Session State ---
+
+export interface SessionSnapshot {
+  id: string;
+  activeLayers: LayerEntry[];
+  resolved: ResolvedNoaProfile | null;
+  provenance: ProvenanceGraph | null;
+  diagnostics: NoaDiagnostic[];
+  engineStates: EngineStates;
+  ledger: AegisLedger;
+  accessories: AccessoryManager;
+  createdAt: number;
+  lastUpdated: number;
+}
+
+export interface LayerEntry {
+  source: NoaSourceFile;
+  active: boolean;
+}
+
+/** 밴드 옵티마이저에서 주입하는 엔진 튜닝 오버라이드 */
+export interface EngineTuningOverride {
+  eh?: EhTuning;
+  hfcp?: HfcpTuning;
+}
+
+export interface EngineStates {
+  hfcp: HfcpState | null;
+  hcrf: HcrfState | null;
+  lastEhResult: EhDetectionResult | null;
+  ocfp: OcfpEngine | null;
+  tlmh: TlmhState | null;
+  sovereign: Sovereign27 | null;
+}
+
+export interface SessionStatus {
+  layerNames: string[];
+  hfcpScore: number | null;
+  hfcpVerdict: string | null;
+  ehLevel: ConfidenceLevel | null;
+  hcrfVerdict: OutputVerdict | null;
+  ocfpGate: string | null;
+  tlmhInvocation: string | null;
+  sovereignMode: string | null;
+  activeEngines: string[];
+  mountedAccessories: string[];
+}
+
+// --- Session Manager ---
+
+export class SessionManager {
+  private sessions = new Map<string, SessionSnapshot>();
+  private sourceRegistry = new Map<string, NoaSourceFile>();
+
+  registerSource(id: string, text: string, origin: string): void {
+    const source = parseNoaSource(text, origin);
+    this.sourceRegistry.set(id, source);
+    const aliasId = `${source.file.kind}/${source.file.id}`;
+    this.sourceRegistry.set(aliasId, source);
+  }
+
+  createSession(sessionId: string = "default"): SessionSnapshot {
+    const session: SessionSnapshot = {
+      id: sessionId,
+      activeLayers: [],
+      resolved: null,
+      provenance: null,
+      diagnostics: [],
+      engineStates: {
+        hfcp: null,
+        hcrf: null,
+        lastEhResult: null,
+        ocfp: null,
+        tlmh: null,
+        sovereign: null,
+      },
+      ledger: new AegisLedger(),
+      accessories: new AccessoryManager(),
+      createdAt: Date.now(),
+      lastUpdated: Date.now(),
+    };
+    session.ledger.record("SESSION_START", { sessionId });
+    this.sessions.set(sessionId, session);
+    return session;
+  }
+
+  getSession(sessionId: string): SessionSnapshot | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  wear(sessionId: string, sourceId: string): SessionSnapshot {
+    const session = this.requireSession(sessionId);
+    const source = this.sourceRegistry.get(sourceId);
+    if (!source) {
+      throw new Error(`소스를 찾을 수 없습니다: "${sourceId}"`);
+    }
+
+    if (session.activeLayers.some((l) => l.source.file.id === source.file.id)) {
+      return session;
+    }
+
+    session.activeLayers.push({ source, active: true });
+    this.recompile(session);
+    session.ledger.record("WEAR", { sourceId: source.file.id });
+    return session;
+  }
+
+  strip(sessionId: string, sourceId: string): SessionSnapshot {
+    const session = this.requireSession(sessionId);
+    session.activeLayers = session.activeLayers.filter(
+      (l) => l.source.file.id !== sourceId
+    );
+    this.recompile(session);
+    session.ledger.record("STRIP", { sourceId });
+    return session;
+  }
+
+  swap(sessionId: string, oldId: string, newId: string): SessionSnapshot {
+    const session = this.requireSession(sessionId);
+    const newSource = this.sourceRegistry.get(newId);
+    if (!newSource) {
+      throw new Error(`소스를 찾을 수 없습니다: "${newId}"`);
+    }
+
+    session.activeLayers = session.activeLayers.filter(
+      (l) => l.source.file.id !== oldId
+    );
+    session.activeLayers.push({ source: newSource, active: true });
+    this.recompile(session);
+    session.ledger.record("SWAP", { oldId, newId: newSource.file.id });
+    return session;
+  }
+
+  /**
+   * 런타임 튜닝 오버라이드 — 밴드 옵티마이저에서 주입.
+   */
+  engineTuning: EngineTuningOverride = {};
+
+  /**
+   * 턴 처리 — 사용자 입력에 대해 7개 엔진 실행.
+   */
+  processTurn(
+    sessionId: string,
+    text: string,
+    signal?: Partial<TurnSignal>
+  ): {
+    session: SessionSnapshot;
+    status: SessionStatus;
+  } {
+    const session = this.requireSession(sessionId);
+    if (!session.resolved) {
+      return { session, status: this.getStatus(session) };
+    }
+
+    const activeEngines = session.resolved.activeEngines;
+    const engines = session.resolved.profile.engines;
+
+    // 1. HFCP 실행
+    if (activeEngines.includes("hfcp") && session.engineStates.hfcp) {
+      const turnSignal: TurnSignal = {
+        length: text.length,
+        hasQuestion: /[?？]/.test(text),
+        humorLevel: signal?.humorLevel ?? 0,
+        connectiveDensity: signal?.connectiveDensity ?? 0,
+        objectionMarker: signal?.objectionMarker ?? false,
+      };
+      session.engineStates.hfcp = updateScore(
+        session.engineStates.hfcp,
+        turnSignal,
+        this.engineTuning.hfcp
+      );
+    }
+
+    // 2. EH 실행 (stateless — 매 턴 독립 실행, 결과만 보관)
+    if (activeEngines.includes("eh")) {
+      const domainWeight = engines?.eh?.domain_weight ?? 1.0;
+      const ehConfig: EhConfig = {
+        domain: this.inferDomain(domainWeight),
+        domainWeight,
+        enableSourceCredibility: engines?.eh?.source_credibility ?? false,
+        tuning: this.engineTuning.eh,
+      };
+      session.engineStates.lastEhResult = ehDetect(text, ehConfig);
+    }
+
+    // 3. HCRF 실행 + Audit 이벤트 → Ledger 기록
+    if (activeEngines.includes("hcrf") && session.engineStates.hcrf) {
+      const hfcpScore = session.engineStates.hfcp?.score ?? 60;
+      const { state, signal: hcrfSignal, responsibility, verdict } =
+        processHcrfTurn(session.engineStates.hcrf, hfcpScore, text);
+      session.engineStates.hcrf = state;
+
+      const auditEvent = createAuditEvent(
+        state,
+        hcrfSignal,
+        responsibility,
+        verdict,
+        hfcpScore
+      );
+      session.ledger.record("HCRF_TURN", auditEvent as unknown as Record<string, unknown>);
+    }
+
+    // 4. OCFP 실행
+    if (activeEngines.includes("ocfp") && session.engineStates.ocfp) {
+      session.engineStates.ocfp.process(text);
+    }
+
+    // 5. TLMH 실행
+    if (activeEngines.includes("tlmh") && session.engineStates.tlmh) {
+      const invitationOnly = engines?.tlmh?.invitation_only ?? true;
+      const result = processTlmhTurn(
+        session.engineStates.tlmh,
+        text,
+        invitationOnly
+      );
+      session.engineStates.tlmh = result.state;
+    }
+
+    // 6. Sovereign 실행
+    if (session.engineStates.sovereign) {
+      const sovResult = session.engineStates.sovereign.run(text);
+      session.ledger.record("SOVEREIGN_VERDICT", {
+        verdict: sovResult.verdict,
+      });
+    }
+
+    session.lastUpdated = Date.now();
+    return { session, status: this.getStatus(session) };
+  }
+
+  getStatus(session: SessionSnapshot): SessionStatus {
+    const layerNames = session.activeLayers.map((l) => l.source.file.meta.name);
+    const hfcpScore = session.engineStates.hfcp?.score ?? null;
+    const hfcpVerdict = hfcpScore !== null
+      ? determineVerdict(session.engineStates.hfcp!)
+      : null;
+    const ehLevel = session.engineStates.lastEhResult?.confidenceLevel ?? null;
+
+    // HCRF verdict — enum 직접 사용
+    let hcrfVerdict: OutputVerdict | null = null;
+    if (session.engineStates.hcrf) {
+      const mode = session.engineStates.hcrf.mode;
+      if (mode === HcrfMode.SEALED) hcrfVerdict = OutputVerdict.SEALED;
+      else if (mode === HcrfMode.REVIEW) hcrfVerdict = OutputVerdict.QUESTIONS_ONLY;
+      else hcrfVerdict = OutputVerdict.NO_OUTPUT;
+    }
+
+    // OCFP gate
+    const ocfpGate = session.engineStates.ocfp
+      ? session.engineStates.ocfp.getState().gate
+      : null;
+
+    // TLMH invocation
+    const tlmhInvocation = session.engineStates.tlmh?.invocation ?? null;
+
+    // Sovereign mode
+    const sovereignMode = session.engineStates.sovereign
+      ? session.engineStates.sovereign.getStatus().mode
+      : null;
+
+    // Mounted accessories
+    const mountedAccessories = session.accessories
+      .getMounted()
+      .map((a) => a.id);
+
+    return {
+      layerNames,
+      hfcpScore,
+      hfcpVerdict,
+      ehLevel,
+      hcrfVerdict,
+      ocfpGate,
+      tlmhInvocation,
+      sovereignMode,
+      activeEngines: session.resolved?.activeEngines ?? [],
+      mountedAccessories,
+    };
+  }
+
+  exportArtifacts(sessionId: string): ExportArtifact[] {
+    const session = this.requireSession(sessionId);
+    if (!session.resolved) {
+      throw new Error("컴파일된 프로필이 없습니다. 먼저 wear 하세요.");
+    }
+    return exportAll(session.resolved);
+  }
+
+  // --- 내부 ---
+
+  private requireSession(sessionId: string): SessionSnapshot {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`세션을 찾을 수 없습니다: "${sessionId}"`);
+    }
+    return session;
+  }
+
+  private recompile(session: SessionSnapshot): void {
+    const sources = session.activeLayers
+      .filter((l) => l.active)
+      .map((l) => l.source);
+
+    if (sources.length === 0) {
+      session.resolved = null;
+      session.provenance = null;
+      session.diagnostics = [];
+      session.engineStates = {
+        hfcp: null, hcrf: null, lastEhResult: null,
+        ocfp: null, tlmh: null, sovereign: null,
+      };
+      session.accessories.unmountAll();
+      session.lastUpdated = Date.now();
+      return;
+    }
+
+    const resolver = (id: string) => this.sourceRegistry.get(id);
+    const normalized = normalizeAll(sources, resolver);
+    const merged = mergeLayers(normalized);
+    const resolved = resolve(merged);
+    const diagnostics = validate(resolved);
+    const provenance = buildProvenanceGraph(resolved);
+
+    session.resolved = resolved;
+    session.provenance = provenance;
+    session.diagnostics = diagnostics;
+
+    this.initEngines(session, resolved);
+
+    // Accessory 마운트
+    const suggested = resolved.profile.accessories?.suggested ?? [];
+    session.accessories.unmountAll();
+    session.accessories.mountSuggested(suggested);
+
+    session.lastUpdated = Date.now();
+  }
+
+  private initEngines(
+    session: SessionSnapshot,
+    resolved: ResolvedNoaProfile
+  ): void {
+    const active = resolved.activeEngines;
+    const config = resolved.profile.engines;
+
+    // HFCP
+    if (active.includes("hfcp")) {
+      const mode: HfcpMode = (config?.hfcp?.mode as HfcpMode) ?? "CHAT";
+      session.engineStates.hfcp = createHfcpState(mode);
+    } else {
+      session.engineStates.hfcp = null;
+    }
+
+    // HCRF
+    if (active.includes("hcrf")) {
+      const block = config?.hcrf?.authority_transfer_block ?? true;
+      session.engineStates.hcrf = createInitialHcrfState(block);
+    } else {
+      session.engineStates.hcrf = null;
+    }
+
+    // EH — stateless, 결과만 보관
+    session.engineStates.lastEhResult = null;
+
+    // OCFP
+    if (active.includes("ocfp")) {
+      const sealDuration = (config?.ocfp?.seal_duration ?? 30) * 60 * 1000;
+      const riskLimit = config?.ocfp?.risk_limit ?? 3;
+      session.engineStates.ocfp = new OcfpEngine(session.ledger, {
+        sealDuration,
+        riskLimit,
+      });
+    } else {
+      session.engineStates.ocfp = null;
+    }
+
+    // TLMH
+    if (active.includes("tlmh")) {
+      session.engineStates.tlmh = createInitialTlmhState();
+    } else {
+      session.engineStates.tlmh = null;
+    }
+
+    // Sovereign — 항상 활성 (보안 정책 엔진)
+    session.engineStates.sovereign = new Sovereign27();
+
+    session.ledger.record("ENGINES_INIT", { activeEngines: active });
+  }
+
+  private inferDomain(weight: number): Domain {
+    if (weight >= 1.35) return Domain.MEDICAL;
+    if (weight >= 1.25) return Domain.FINANCE;
+    if (weight >= 1.15) return Domain.LEGAL;
+    if (weight >= 1.1) return Domain.ACADEMIC;
+    return Domain.GENERAL;
+  }
+}

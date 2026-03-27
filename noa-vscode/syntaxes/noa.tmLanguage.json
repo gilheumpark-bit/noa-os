@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "NOA",
+  "scopeName": "source.noa",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#top-level-keys" },
+    { "include": "#noa-keywords" },
+    { "include": "#yaml-key" },
+    { "include": "#string-quoted" },
+    { "include": "#boolean" },
+    { "include": "#number" },
+    { "include": "#constant" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.noa"
+    },
+    "top-level-keys": {
+      "match": "^(schemaVersion|id|kind|extends|meta|priority|persona|intent|policies|engines|output|compatibility|accessories)\\s*:",
+      "captures": {
+        "1": { "name": "keyword.control.noa" }
+      }
+    },
+    "noa-keywords": {
+      "match": "\\b(safety|escalation|requiredOn|deny|allow|locks|uncertainty|citations|hfcp|eh|hcrf|ocfp|tlmh|enabled|mode|score_cap|domain_weight|source_credibility|authority_transfer_block|seal_duration|risk_limit|invitation_only|role|tone|audience|tasks|name|description|tags|format|sections|targets|suggested)\\b",
+      "name": "support.type.property-name.noa"
+    },
+    "yaml-key": {
+      "match": "^\\s*([\\w][\\w.-]*)\\s*:",
+      "captures": {
+        "1": { "name": "entity.name.tag.yaml.noa" }
+      }
+    },
+    "string-quoted": {
+      "patterns": [
+        {
+          "match": "\"[^\"]*\"",
+          "name": "string.quoted.double.noa"
+        },
+        {
+          "match": "'[^']*'",
+          "name": "string.quoted.single.noa"
+        }
+      ]
+    },
+    "boolean": {
+      "match": "\\b(true|false)\\b",
+      "name": "constant.language.boolean.noa"
+    },
+    "number": {
+      "match": "\\b\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.noa"
+    },
+    "constant": {
+      "match": "\\b(CHAT|CREATIVE|explicit|minimal|strict|markdown|plaintext|json|html|claude|gpt|local|copilot|base|domain|user|session)\\b",
+      "name": "constant.other.noa"
+    }
+  }
+}
