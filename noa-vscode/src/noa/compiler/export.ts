@@ -18,12 +18,12 @@ export interface ExportArtifact {
   };
 }
 
-type AdapterFn = (resolved: ResolvedNoaProfile) => string;
+type AdapterFn = (resolved: ResolvedNoaProfile, ...args: unknown[]) => string;
 
 const ADAPTERS: Record<string, AdapterFn> = {
   claude: exportForClaude,
   gpt: exportForGpt,
-  local: exportForLocal,
+  local: exportForLocal as AdapterFn,
   copilot: exportForCopilot,
 };
 

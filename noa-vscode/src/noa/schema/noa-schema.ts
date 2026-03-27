@@ -110,8 +110,20 @@ export const OutputSchema = z.object({
 });
 export type Output = z.infer<typeof OutputSchema>;
 
+export const LocalLlmRuntime = z.enum(["ollama", "lmstudio", "llamacpp", "vllm"]);
+export const LocalLlmFormat = z.enum(["chatml", "llama3", "mistral", "phi", "gemma", "raw"]);
+
+export const LocalLlmSchema = z.object({
+  runtime: LocalLlmRuntime.default("ollama"),
+  format: LocalLlmFormat.default("chatml"),
+  model: z.string().optional(),
+  contextTokens: z.number().min(512).max(131072).default(4096),
+  endpoint: z.string().optional(),
+}).optional();
+
 export const CompatibilitySchema = z.object({
   targets: z.array(CompatibilityTarget).default(["claude", "gpt"]),
+  local: LocalLlmSchema,
 });
 export type Compatibility = z.infer<typeof CompatibilitySchema>;
 
