@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NOA Clothing File",
+  "description": ".noa 파일 스키마 — AI 페르소나/정책 정의",
+  "type": "object",
+  "required": ["id", "kind", "meta"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "default": "1.0",
+      "description": "스키마 버전"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "고유 식별자"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["base", "domain", "user", "session"],
+      "description": "레이어 종류. base(0-99), domain(100-299), user(300-599), session(600+)"
+    },
+    "extends": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "상위 레이어 참조 목록"
+    },
+    "meta": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "병합 우선순위. kind에 따라 범위 제한"
+    },
+    "persona": {
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" },
+        "tone": { "type": "string" },
+        "audience": { "type": "string" }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "properties": {
+        "safety": {
+          "type": "object",
+          "properties": {
+            "escalation": {
+              "type": "object",
+              "properties": {
+                "requiredOn": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "deny": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "monotonic union — 하위 레이어에서 제거 불가"
+            },
+            "allow": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "locks": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "잠긴 필드는 하위 override 차단"
+            }
+          }
+        },
+        "uncertainty": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": ["explicit", "minimal", "strict"]
+            }
+          }
+        },
+        "citations": {
+          "type": "object",
+          "properties": {
+            "required": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "engines": {
+      "type": "object",
+      "properties": {
+        "hfcp": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "mode": { "type": "string", "enum": ["CHAT", "CREATIVE"] },
+            "score_cap": { "type": "number", "minimum": 50, "maximum": 150 }
+          }
+        },
+        "eh": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "domain_weight": { "type": "number", "minimum": 0.5, "maximum": 3.0 },
+            "source_credibility": { "type": "boolean" }
+          }
+        },
+        "hcrf": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "authority_transfer_block": { "type": "boolean" }
+          }
+        },
+        "ocfp": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "seal_duration": { "type": "number" },
+            "risk_limit": { "type": "number" }
+          }
+        },
+        "tlmh": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "invitation_only": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["markdown", "plaintext", "json", "html"]
+        },
+        "sections": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["claude", "gpt", "local", "copilot"]
+          }
+        }
+      }
+    },
+    "accessories": {
+      "type": "object",
+      "properties": {
+        "suggested": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
