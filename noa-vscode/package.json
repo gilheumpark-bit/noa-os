@@ -48,6 +48,38 @@
         "url": "./schemas/noa-schema.json"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "noa-explorer",
+          "title": "NOA Clothing",
+          "icon": "$(person)"
+        }
+      ]
+    },
+    "views": {
+      "noa-explorer": [
+        {
+          "id": "noaWardrobe",
+          "name": "Wardrobe",
+          "type": "tree"
+        },
+        {
+          "id": "noaLayerStack",
+          "name": "Active Layers",
+          "type": "tree"
+        }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "noa.chatParticipant",
+        "name": "noa",
+        "fullName": "NOA Clothing",
+        "description": "AI 페르소나 관리 — wear, strip, swap, explain, status",
+        "isSticky": false
+      }
+    ],
     "commands": [
       {
         "command": "noa.wear",
