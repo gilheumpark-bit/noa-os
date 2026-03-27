@@ -48,9 +48,18 @@ import {
   type TlmhProcessResult,
 } from "../engines/tlmh";
 import {
-  Sovereign27,
-  type Verdict as SovereignVerdict,
+  SovereignGate,
+  KernelState,
+  ExecutionVerdict,
+  GatewaySignal,
+  PolicyHint,
+  type RiskLevel,
 } from "../engines/sovereign";
+import {
+  InvariantBridge,
+  BridgeEvent,
+  type EventSnapshot as NibEventSnapshot,
+} from "../engines/nib";
 import { AegisLedger } from "../engines/ledger";
 import { AccessoryManager } from "./accessories";
 
@@ -86,7 +95,9 @@ export interface EngineStates {
   lastEhResult: EhDetectionResult | null;
   ocfp: OcfpEngine | null;
   tlmh: TlmhState | null;
-  sovereign: Sovereign27 | null;
+  sovereign: SovereignGate | null;
+  nib: InvariantBridge | null;
+  lastNibEvent: NibEventSnapshot | null;
 }
 
 export interface SessionStatus {
@@ -97,7 +108,10 @@ export interface SessionStatus {
   hcrfVerdict: OutputVerdict | null;
   ocfpGate: string | null;
   tlmhInvocation: string | null;
-  sovereignMode: string | null;
+  sovereignKernelState: string | null;
+  sovereignRiskLevel: string | null;
+  nibEvent: string | null;
+  nibConfidence: number | null;
   activeEngines: string[];
   mountedAccessories: string[];
 }
@@ -129,6 +143,8 @@ export class SessionManager {
         ocfp: null,
         tlmh: null,
         sovereign: null,
+        nib: null,
+        lastNibEvent: null,
       },
       ledger: new AegisLedger(),
       accessories: new AccessoryManager(),
@@ -272,11 +288,61 @@ export class SessionManager {
       session.engineStates.tlmh = result.state;
     }
 
-    // 6. Sovereign 실행
+    // 6. NIB — 엔진 결과를 시간축 패턴 분석에 투입
+    if (session.engineStates.nib) {
+      const nib = session.engineStates.nib;
+
+      // HFCP 점수 변화를 NIB에 피딩
+      if (session.engineStates.hfcp) {
+        const hfcpScore = session.engineStates.hfcp.score;
+        const prevScore = session.engineStates.hfcp.score - (session.engineStates.hfcp.score * 0.02); // approximate
+        nib.process('hfcp_score', { score: hfcpScore, prev: prevScore });
+      }
+
+      // EH 리스크를 NIB에 피딩
+      if (session.engineStates.lastEhResult) {
+        nib.process('eh_risk', {
+          risk: session.engineStates.lastEhResult.finalRisk,
+          threshold: 30,
+        });
+      }
+
+      // 텍스트 길이를 NIB에 피딩
+      const nibEvent = nib.process('text_length', {
+        length: text.length,
+        avgLength: 100,
+      });
+      session.engineStates.lastNibEvent = nibEvent;
+
+      session.ledger.record("NIB_EVENT", {
+        event: nibEvent.event,
+        confidence: nibEvent.confidence,
+      });
+    }
+
+    // 7. Sovereign Gate — NIB 이벤트를 PolicyHint로 변환하여 투입
     if (session.engineStates.sovereign) {
-      const sovResult = session.engineStates.sovereign.run(text);
+      const sov = session.engineStates.sovereign;
+      const nibEvent = session.engineStates.lastNibEvent;
+
+      // NIB 이벤트 → NSG PolicyHint 변환
+      if (nibEvent && nibEvent.event !== BridgeEvent.BACKGROUND) {
+        const hintMap: Record<string, PolicyHint> = {
+          [BridgeEvent.TRANSIENT_ANOMALY]: PolicyHint.SPIKE_WARNING,
+          [BridgeEvent.PERSISTENT_ANOMALY]: PolicyHint.STRUCTURE_DRIFT,
+          [BridgeEvent.STRUCTURAL_VIOLATION]: PolicyHint.ADVERSARIAL_BEHAVIOR,
+        };
+        const hint = hintMap[nibEvent.event] ?? PolicyHint.NONE;
+        sov.policy.evaluate({ hint });
+      }
+
+      // 텍스트를 게이트웨이에 통과
+      const sovResult = sov.process(text, sessionId);
       session.ledger.record("SOVEREIGN_VERDICT", {
         verdict: sovResult.verdict,
+        kernelState: sovResult.kernelState,
+        riskLevel: sovResult.riskLevel,
+        gatewaySignal: sovResult.gatewaySignal,
       });
     }
 
@@ -309,10 +375,17 @@ export class SessionManager {
     // TLMH invocation
     const tlmhInvocation = session.engineStates.tlmh?.invocation ?? null;
 
-    // Sovereign mode
-    const sovereignMode = session.engineStates.sovereign
-      ? session.engineStates.sovereign.getStatus().mode
+    // Sovereign (NSG)
+    const sovereignKernelState = session.engineStates.sovereign
+      ? session.engineStates.sovereign.kernel.state
       : null;
+    const sovereignRiskLevel = session.engineStates.sovereign
+      ? session.engineStates.sovereign.policy.riskLevel
+      : null;
+
+    // NIB
+    const nibEvent = session.engineStates.lastNibEvent?.event ?? null;
+    const nibConfidence = session.engineStates.lastNibEvent?.confidence ?? null;
 
     // Mounted accessories
     const mountedAccessories = session.accessories
@@ -327,7 +400,10 @@ export class SessionManager {
       hcrfVerdict,
       ocfpGate,
       tlmhInvocation,
-      sovereignMode,
+      sovereignKernelState,
+      sovereignRiskLevel,
+      nibEvent,
+      nibConfidence,
       activeEngines: session.resolved?.activeEngines ?? [],
       mountedAccessories,
     };
@@ -363,6 +439,7 @@ export class SessionManager {
       session.engineStates = {
         hfcp: null, hcrf: null, lastEhResult: null,
         ocfp: null, tlmh: null, sovereign: null,
+        nib: null, lastNibEvent: null,
       };
       session.accessories.unmountAll();
       session.lastUpdated = Date.now();
@@ -435,10 +512,14 @@ export class SessionManager {
       session.engineStates.tlmh = null;
     }
 
-    // Sovereign — 항상 활성 (보안 정책 엔진)
-    session.engineStates.sovereign = new Sovereign27();
+    // Sovereign Gate (NSG) — 항상 활성 (5파트 보안 커널)
+    session.engineStates.sovereign = new SovereignGate();
 
-    session.ledger.record("ENGINES_INIT", { activeEngines: active });
+    // NIB (Invariant Bridge) — 항상 활성 (시간축 패턴 분석)
+    session.engineStates.nib = new InvariantBridge(12, 8);
+    session.engineStates.lastNibEvent = null;
+
+    session.ledger.record("ENGINES_INIT", { activeEngines: [...active, "nib", "sovereign"] });
   }
 
   private inferDomain(weight: number): Domain {
