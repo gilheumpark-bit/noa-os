@@ -183,8 +183,8 @@ export function detectSpike(
 /**
  * L (Load Leveling) — 극단값 억제
  */
-export function loadLeveling(score: number): number {
-  if (score <= 70) return 0.7;
+export function loadLeveling(score: number, lowFactor: number = 0.7): number {
+  if (score <= 70) return lowFactor;
   if (score >= 130) return 0.5;
   return 1.0;
 }
@@ -192,23 +192,29 @@ export function loadLeveling(score: number): number {
 /**
  * H (Hysteresis) — 급락 방지
  */
-export function hysteresis(delta: number): number {
-  return delta < 0 ? 0.5 : 1.0;
+export function hysteresis(delta: number, factor: number = 0.5): number {
+  return delta < 0 ? factor : 1.0;
+}
+
+/** 런타임 튜닝 파라미터 */
+export interface HfcpTuning {
+  loadLevelingLow?: number;   // 기본 0.7
+  hysteresisFactor?: number;  // 기본 0.5
 }
 
 /**
  * 점수 갱신 (핵심 공식)
  * S_{t+1} = clip( (S_t + Δ*M + D + Σ) * L * H, 50, 150 )
  */
-export function updateScore(state: HfcpState, signal: TurnSignal): HfcpState {
+export function updateScore(state: HfcpState, signal: TurnSignal, tuning?: HfcpTuning): HfcpState {
   const delta = computeDelta(signal);
   const { k, multiplier } = updateMomentum(state.momentumK, state.lastDelta, delta);
   const depth = depthTrigger(signal);
 
   const rawChange = delta * multiplier + depth;
   const spike = detectSpike(state.score, rawChange);
-  const L = loadLeveling(state.score);
-  const H = hysteresis(delta);
+  const L = loadLeveling(state.score, tuning?.loadLevelingLow);
+  const H = hysteresis(delta, tuning?.hysteresisFactor);
 
   const cap = state.mode === "CREATIVE" ? CREATIVE_SPIKE_CAP : S_MAX;
   const newScore = clamp(

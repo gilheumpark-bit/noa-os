@@ -18,11 +18,13 @@ import {
   type HfcpState,
   type TurnSignal,
   type HfcpMode,
+  type HfcpTuning,
 } from "../engines/hfcp";
 import {
   detect as ehDetect,
   type EhDetectionResult,
   type EhConfig,
+  type EhTuning,
   Domain,
   ConfidenceLevel,
 } from "../engines/eh-detector";
@@ -70,6 +72,12 @@ export interface SessionSnapshot {
 export interface LayerEntry {
   source: NoaSourceFile;
   active: boolean;
+}
+
+/** 밴드 옵티마이저에서 주입하는 엔진 튜닝 오버라이드 */
+export interface EngineTuningOverride {
+  eh?: EhTuning;
+  hfcp?: HfcpTuning;
 }
 
 export interface EngineStates {
@@ -180,6 +188,11 @@ export class SessionManager {
   }
 
   /**
+   * 런타임 튜닝 오버라이드 — 밴드 옵티마이저에서 주입.
+   */
+  engineTuning: EngineTuningOverride = {};
+
+  /**
    * 턴 처리 — 사용자 입력에 대해 7개 엔진 실행.
    */
   processTurn(
@@ -209,7 +222,8 @@ export class SessionManager {
       };
       session.engineStates.hfcp = updateScore(
         session.engineStates.hfcp,
-        turnSignal
+        turnSignal,
+        this.engineTuning.hfcp
       );
     }
 
@@ -220,6 +234,7 @@ export class SessionManager {
         domain: this.inferDomain(domainWeight),
         domainWeight,
         enableSourceCredibility: engines?.eh?.source_credibility ?? false,
+        tuning: this.engineTuning.eh,
       };
       session.engineStates.lastEhResult = ehDetect(text, ehConfig);
     }

@@ -207,7 +207,7 @@ export interface SimSummary {
 // --- 시뮬레이터 ---
 
 export class EngineSimulator {
-  private manager: SessionManager;
+  readonly manager: SessionManager;
 
   constructor(manager: SessionManager) {
     this.manager = manager;

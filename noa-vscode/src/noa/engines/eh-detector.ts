@@ -64,13 +64,13 @@ const BLUR_KEYWORDS_EN = [
   "generally", "many experts",
 ];
 
-export function detectBlur(text: string): number {
+export function detectBlur(text: string, scorePerHit: number = 4.0): number {
   const lower = text.toLowerCase();
   let hits = 0;
   for (const kw of [...BLUR_KEYWORDS_KO, ...BLUR_KEYWORDS_EN]) {
     if (lower.includes(kw.toLowerCase())) hits++;
   }
-  return hits * 4.0;
+  return hits * scorePerHit;
 }
 
 /**
@@ -116,11 +116,11 @@ const ABSOLUTE_PATTERNS: Array<{ pattern: string; score: number }> = [
   { pattern: "impossible to fail", score: 18 },
 ];
 
-export function detectHallucination(text: string): number {
+export function detectHallucination(text: string, minScore: number = 0): number {
   const lower = text.toLowerCase();
   let maxScore = 0;
   for (const { pattern, score } of ABSOLUTE_PATTERNS) {
-    if (lower.includes(pattern.toLowerCase())) {
+    if (lower.includes(pattern.toLowerCase()) && score >= minScore) {
       maxScore = Math.max(maxScore, score);
     }
   }
@@ -175,22 +175,28 @@ export interface EhFlags {
   sourceScore: number;
 }
 
+export interface EhTuning {
+  blurScorePerHit?: number;          // 기본 4.0
+  hallucinationMinScore?: number;    // 기본 12 (이 이상이면 감지)
+}
+
 export interface EhConfig {
   domain: Domain;
   domainWeight?: number;        // .noa에서 오버라이드 가능
   enableSourceCredibility: boolean;
+  tuning?: EhTuning;           // 밴드 옵티마이저에서 주입
 }
 
 export function detect(
   text: string,
   config: EhConfig
 ): EhDetectionResult {
-  const start = performance.now();
+  const tuning = config.tuning ?? {};
 
-  // 4개 탐지 모듈 실행
-  const blurScore = detectBlur(text);
+  // 4개 탐지 모듈 실행 (튜닝 파라미터 주입)
+  const blurScore = detectBlur(text, tuning.blurScorePerHit);
   const successNoCostScore = detectSuccessNoCost(text);
-  const hallucinationScore = detectHallucination(text);
+  const hallucinationScore = detectHallucination(text, tuning.hallucinationMinScore);
   const { tier: sourceTier, score: sourceScore } = evaluateSourceCredibility(text);
 
   // 리스크 공식

@@ -7,7 +7,6 @@
  */
 
 import { EngineSimulator, getScenarios, type SimSummary } from "./engine-sim";
-import { SessionManager } from "../runtime/session";
 
 // --- 밴드 설정 ---
 
@@ -408,15 +407,37 @@ export class BandOptimizer {
 
   /**
    * 밴드 설정으로 시뮬레이션 실행.
-   * [확인 필요] 현재 구현에서는 밴드 값을 기록만 하고,
-   * 실제 엔진 파라미터 주입은 .noa 파일 수준에서 이루어짐.
-   * 향후 런타임 파라미터 오버라이드를 지원하면 직접 주입 가능.
+   * 밴드 값 → 실제 엔진 파라미터로 변환 → SessionManager에 주입 → 시뮬 실행.
    */
   private evaluate(config: BandConfig): SimSummary {
-    // 현재는 기본 프리셋으로 시뮬 실행 (파라미터 오버라이드 미적용)
-    // → 밴드 값에 따른 결과 차이는 프리셋 .noa에 반영해야 함
+    // 밴드 값을 실제 엔진 튜닝 파라미터로 변환
+    const tuning = this.bandConfigToTuning(config);
+
+    // SessionManager에 런타임 튜닝 주입
+    this.simulator.manager.engineTuning = tuning;
+
     return this.simulator.runAll(this.presetIds);
   }
+
+  private bandConfigToTuning(config: BandConfig): import("../runtime/session").EngineTuningOverride {
+    const get = (key: string): number => {
+      const bandVal = config.values[key] ?? BAND.base;
+      const param = ENGINE_PARAMS.find((p) => `${p.engine}.${p.param}` === key);
+      return param ? bandToActual(param, bandVal) : 0;
+    };
+
+    return {
+      eh: {
+        blurScorePerHit: get("eh.blur_score_per_hit"),
+        hallucinationMinScore: get("eh.hallucination_threshold"),
+      },
+      hfcp: {
+        loadLevelingLow: get("hfcp.load_leveling_low"),
+        hysteresisFactor: get("hfcp.hysteresis_factor"),
+      },
+    };
+  }
+
 }
 
 // --- 유틸 ---
