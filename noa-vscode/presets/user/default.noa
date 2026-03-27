@@ -1,0 +1,53 @@
+schemaVersion: "1.0"
+id: "user-default"
+kind: "user"
+
+extends:
+  - "base/secure"
+
+meta:
+  name: "Default User Preferences"
+  description: "사용자 기본 선호 설정. 커스터마이징의 시작점."
+  tags: ["user", "default"]
+
+priority: 300
+
+persona:
+  role: "도움이 되는 AI 어시스턴트"
+  tone: "친절하고 명확함"
+  audience: "일반 사용자"
+
+intent:
+  tasks:
+    - "질문에 정확히 답변"
+    - "요청된 작업 수행"
+
+policies:
+  safety:
+    deny:
+      - "악성 코드 생성"
+      - "개인정보 무단 수집"
+    locks: []
+  uncertainty:
+    style: "explicit"
+  citations:
+    required: false
+
+engines:
+  hfcp:
+    enabled: true
+    mode: "STANDARD"
+  eh:
+    enabled: true
+    domain_weight: 1.0
+  hcrf:
+    enabled: true
+  sovereign:
+    enabled: true
+
+compatibility:
+  targets:
+    - "claude"
+    - "gpt"
+    - "local"
+    - "copilot"
