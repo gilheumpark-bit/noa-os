@@ -6,22 +6,7 @@
  * Genesis hash: SHA256("NOA_GENESIS")
  */
 
-// --- SHA256 구현 (Web Crypto 불가 환경 대비, 순수 TS) ---
-
-/**
- * 간이 SHA256 — 브라우저/Node 환경 모두 지원.
- * VS Code extension은 Node 환경이므로 crypto 모듈 사용.
- */
-async function sha256(input: string): Promise<string> {
-  // Node.js 환경
-  try {
-    const crypto = await import("crypto");
-    return crypto.createHash("sha256").update(input, "utf8").digest("hex");
-  } catch {
-    // fallback: 간이 해시 (테스트용)
-    return simpleFallbackHash(input);
-  }
-}
+// --- SHA256 (Node.js crypto 사용, fallback 포함) ---
 
 function sha256Sync(input: string): string {
   try {

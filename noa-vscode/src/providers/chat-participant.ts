@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { SessionManager, SessionStatus } from "../noa/runtime/session";
-import { explainField, buildProvenanceGraph } from "../noa/compiler/explain";
+import { explainField } from "../noa/compiler/explain";
 
 /**
  * Copilot Chat Participant — @noa 명령어 처리.

@@ -97,5 +97,53 @@ export function validate(resolved: ResolvedNoaProfile): NoaDiagnostic[] {
     }
   }
 
+  // --- 엔진 의존성/제약 검증 ---
+
+  // OCFP 활성 시 HCRF 권장
+  if (resolved.activeEngines.includes("ocfp") && !resolved.activeEngines.includes("hcrf")) {
+    diagnostics.push({
+      severity: "warning",
+      message: "OCFP가 활성인데 HCRF가 비활성입니다. 기업 필터에 책임 게이트를 함께 사용하는 것을 권장합니다.",
+      path: "engines",
+    });
+  }
+
+  // TLMH + HFCP CREATIVE 모드 충돌 경고
+  if (
+    resolved.activeEngines.includes("tlmh") &&
+    resolved.activeEngines.includes("hfcp") &&
+    profile.engines?.hfcp?.mode === "CREATIVE"
+  ) {
+    diagnostics.push({
+      severity: "warning",
+      message: "TLMH(연구 모드)와 HFCP CREATIVE 모드가 동시 활성입니다. 연구 모드에서는 CHAT 모드가 적합합니다.",
+      path: "engines.hfcp.mode",
+    });
+  }
+
+  // HFCP score_cap 범위
+  if (profile.engines?.hfcp?.enabled) {
+    const cap = profile.engines.hfcp.score_cap;
+    if (cap < 50 || cap > 150) {
+      diagnostics.push({
+        severity: "error",
+        message: `HFCP score_cap이 ${cap}입니다. 유효 범위: 50~150.`,
+        path: "engines.hfcp.score_cap",
+      });
+    }
+  }
+
+  // OCFP risk_limit 범위
+  if (profile.engines?.ocfp?.enabled) {
+    const limit = profile.engines.ocfp.risk_limit;
+    if (limit < 1 || limit > 10) {
+      diagnostics.push({
+        severity: "warning",
+        message: `OCFP risk_limit이 ${limit}입니다. 권장 범위: 1~10.`,
+        path: "engines.ocfp.risk_limit",
+      });
+    }
+  }
+
   return diagnostics;
 }

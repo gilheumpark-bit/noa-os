@@ -27,8 +27,10 @@ export function activate(context: vscode.ExtensionContext) {
   const sessionMgr = new SessionManager();
   sessionMgr.createSession(DEFAULT_SESSION);
 
-  // 프리셋 자동 등록
-  loadPresetsIntoRegistry(registry, sessionMgr);
+  // 프리셋 자동 등록 (비동기, 에러 시 경고만)
+  loadPresetsIntoRegistry(registry, sessionMgr).catch((e) => {
+    console.warn("프리셋 로드 실패:", e);
+  });
 
   // 상태바
   const statusBar = vscode.window.createStatusBarItem(
