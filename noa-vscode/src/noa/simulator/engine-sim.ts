@@ -575,6 +575,7 @@ export class EngineSimulator {
       sovereignRiskLevel: null,
       nibEvent: null,
       nibConfidence: null,
+      rclLevel: null,
       activeEngines: [],
       mountedAccessories: [],
     };

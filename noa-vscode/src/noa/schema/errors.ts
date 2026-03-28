@@ -32,18 +32,6 @@ export class NoaSchemaError extends Error {
   }
 }
 
-export class NoaMergeConflictError extends Error {
-  public readonly field: string;
-  public readonly layers: string[];
-
-  constructor(field: string, layers: string[]) {
-    super(`병합 충돌: "${field}" — 레이어: ${layers.join(", ")}`);
-    this.name = "NoaMergeConflictError";
-    this.field = field;
-    this.layers = layers;
-  }
-}
-
 export class NoaLockViolationError extends Error {
   public readonly lockedField: string;
   public readonly attemptedBy: string;

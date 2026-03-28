@@ -43,7 +43,9 @@ export function createKernelState(): KernelState {
 
 export function updateKernelGate(
   state: KernelState,
-  riskLevel: RiskLevel
+  riskLevel: RiskLevel,
+  riskLimit: number = RISK_LIMIT,
+  sealDurationMs: number = SEAL_DURATION_MS
 ): KernelState {
   const now = Date.now();
 
@@ -66,10 +68,10 @@ export function updateKernelGate(
     state.consecutiveRisks = Math.max(0, state.consecutiveRisks - 1);
   }
 
-  // 3연속 리스크 → SEALED
-  if (state.consecutiveRisks >= RISK_LIMIT) {
+  // riskLimit 연속 리스크 → SEALED
+  if (state.consecutiveRisks >= riskLimit) {
     state.gate = InteractionGate.SEALED;
-    state.sealedUntil = now + SEAL_DURATION_MS;
+    state.sealedUntil = now + sealDurationMs;
   } else if (riskLevel === RiskLevel.CRITICAL) {
     state.gate = InteractionGate.SILENT;
   } else if (riskLevel === RiskLevel.HIGH) {
@@ -308,7 +310,12 @@ export class OcfpEngine {
   } {
     const risk = assessRisk(text);
 
-    this.kernelState = updateKernelGate(this.kernelState, risk.level);
+    this.kernelState = updateKernelGate(
+      this.kernelState,
+      risk.level,
+      this.config.riskLimit,
+      this.config.sealDuration
+    );
 
     // 감사 로그
     this.ledger.record("OCFP_PROCESS", {

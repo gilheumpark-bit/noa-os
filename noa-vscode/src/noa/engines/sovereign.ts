@@ -11,7 +11,20 @@
  *         Gateway NEVER issues verdicts. Ledger NEVER alters records.
  */
 
-import { createHash } from 'crypto';
+// --- SHA256 (Node.js crypto, fallback for browser) ---
+function sha256(input: string): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const crypto = require('crypto') as typeof import('crypto');
+    return crypto.createHash('sha256').update(input).digest('hex');
+  } catch {
+    let h = 0;
+    for (let i = 0; i < input.length; i++) {
+      h = Math.imul(31, h) + input.charCodeAt(i) | 0;
+    }
+    return Math.abs(h).toString(16).padStart(16, '0').repeat(4).slice(0, 64);
+  }
+}
 
 // ============================================================
 // PART 1 — Deterministic Authority Kernel (DAK)
@@ -58,7 +71,7 @@ export interface KernelSnapshot {
 
 function snapshotHash(ts: number, state: KernelState, reason: string, meta: Record<string, unknown>): string {
   const raw = `${ts}|${state}|${reason}|${JSON.stringify(meta)}`;
-  return createHash('sha256').update(raw).digest('hex').slice(0, 32);
+  return sha256(raw).slice(0, 32);
 }
 
 export class DeterministicAuthorityKernel {
@@ -252,7 +265,7 @@ export class SovereignPolicyEngine {
 
     const ts = now;
     const raw = `${ts}|${risk}|${verdict}|${this.riskScore.toFixed(4)}|${hint}`;
-    const h = createHash('sha256').update(raw).digest('hex').slice(0, 32);
+    const h = sha256(raw).slice(0, 32);
 
     this.history.push({ timestamp: ts, risk, verdict, score: this.riskScore, reason: hint, hash: h });
     return verdict;
@@ -436,7 +449,7 @@ export interface AuditRecord {
 
 function recordHash(index: number, ts: number, event: AuditEventType, payload: Record<string, unknown>, prevHash: string): string {
   const raw = `${index}|${ts}|${event}|${JSON.stringify(payload)}|${prevHash}`;
-  return createHash('sha256').update(raw).digest('hex');
+  return sha256(raw);
 }
 
 export class ImmutableAuditLedger {
@@ -444,7 +457,7 @@ export class ImmutableAuditLedger {
   private genesisHash: string;
 
   constructor() {
-    this.genesisHash = createHash('sha256').update('NSG_IARL_GENESIS_v1.0').digest('hex');
+    this.genesisHash = sha256('NSG_IARL_GENESIS_v1.0');
   }
 
   append(event: AuditEventType, payload: Record<string, unknown>): AuditRecord {
@@ -535,7 +548,7 @@ export class SpikeObserver {
 
     const values = { functions, branches, exceptions, avgLen: +avgLen.toFixed(2), depth, entropy: +entropy.toFixed(4) };
     const raw = Object.entries(values).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}:${v}`).join('|');
-    const h = createHash('sha256').update(raw).digest('hex').slice(0, 32);
+    const h = sha256(raw).slice(0, 32);
 
     return {
       functionCount: functions,

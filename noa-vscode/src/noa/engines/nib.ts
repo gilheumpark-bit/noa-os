@@ -8,7 +8,20 @@
 // - Shape-based event classification (no absolute thresholds)
 // ============================================================
 
-import { createHash } from 'crypto';
+// --- SHA256 (Node.js crypto, fallback for browser) ---
+function sha256(input: string): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const crypto = require('crypto') as typeof import('crypto');
+    return crypto.createHash('sha256').update(input).digest('hex');
+  } catch {
+    let h = 0;
+    for (let i = 0; i < input.length; i++) {
+      h = Math.imul(31, h) + input.charCodeAt(i) | 0;
+    }
+    return Math.abs(h).toString(16).padStart(16, '0').repeat(4).slice(0, 64);
+  }
+}
 
 // ============================================================
 // PART 1 — Invariant Observation Adapter (IOA)
@@ -96,7 +109,7 @@ class TextLengthAdapter implements ObservationAdapter {
 
 function fingerprint(values: Record<string, number>): string {
   const raw = Object.keys(values).sort().map(k => `${k}:${values[k].toFixed(6)}`).join('|');
-  return createHash('sha256').update(raw).digest('hex').slice(0, 24);
+  return sha256(raw).slice(0, 24);
 }
 
 export class InvariantObservationAdapter {
@@ -214,7 +227,7 @@ export class InvariantFeatureCore {
 
     const fp = Object.keys(features).sort()
       .map(k => `${k}:${(features as any)[k].toFixed(6)}`).join('|');
-    const hash = createHash('sha256').update(fp).digest('hex').slice(0, 28);
+    const hash = sha256(fp).slice(0, 28);
 
     return { timestamp: Date.now(), ...features, fingerprint: hash };
   }
@@ -309,7 +322,7 @@ export class InvariantEventEmitter {
 
     const fp = Object.keys(factors).sort()
       .map(k => `${k}:${factors[k].toFixed(6)}`).join('|');
-    const hash = createHash('sha256').update(fp).digest('hex').slice(0, 28);
+    const hash = sha256(fp).slice(0, 28);
 
     return { timestamp: Date.now(), event, confidence, contributingFeatures: factors, fingerprint: hash };
   }

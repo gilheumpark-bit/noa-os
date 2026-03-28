@@ -15,6 +15,11 @@ import {
   createInitialState as createHfcpState,
   updateScore,
   determineVerdict,
+  NrgMemory,
+  RclLevel,
+  computeRclLevel,
+  updateMemoryEcology,
+  type MemoryEcologyState,
   type HfcpState,
   type TurnSignal,
   type HfcpMode,
@@ -51,7 +56,13 @@ import {
   BridgeEvent,
   type EventSnapshot as NibEventSnapshot,
 } from "../engines/nib";
-import { AegisLedger } from "../engines/ledger";
+import {
+  AegisLedger,
+  createContextState,
+  appendMessage,
+  createMessageFrame,
+  type ContextState,
+} from "../engines/ledger";
 import { AccessoryManager } from "./accessories";
 
 // --- Session State ---
@@ -73,6 +84,8 @@ export interface SessionSnapshot {
   avgTextLength: number;
   /** NIB 피딩용 — 총 턴 수 */
   turnCount: number;
+  /** CoW 메시지 이력 (ledger.ts ContextState) */
+  contextState: ContextState;
 }
 
 export interface LayerEntry {
@@ -95,6 +108,8 @@ export interface EngineStates {
   sovereign: SovereignGate | null;
   nib: InvariantBridge | null;
   lastNibEvent: NibEventSnapshot | null;
+  nrgMemory: NrgMemory | null;
+  memoryEcology: MemoryEcologyState | null;
 }
 
 export interface SessionStatus {
@@ -109,6 +124,7 @@ export interface SessionStatus {
   sovereignRiskLevel: string | null;
   nibEvent: string | null;
   nibConfidence: number | null;
+  rclLevel: RclLevel | null;
   activeEngines: string[];
   mountedAccessories: string[];
 }
@@ -142,6 +158,8 @@ export class SessionManager {
         sovereign: null,
         nib: null,
         lastNibEvent: null,
+        nrgMemory: null,
+        memoryEcology: null,
       },
       ledger: new AegisLedger(),
       accessories: new AccessoryManager(),
@@ -150,6 +168,7 @@ export class SessionManager {
       prevHfcpScore: 60,
       avgTextLength: 100,
       turnCount: 0,
+      contextState: createContextState(sessionId),
     };
     session.ledger.record("SESSION_START", { sessionId });
     this.sessions.set(sessionId, session);
@@ -227,13 +246,20 @@ export class SessionManager {
     const activeEngines = session.resolved.activeEngines;
     const engines = session.resolved.profile.engines;
 
+    // 0. NRG Memory — 반복 감지 (HFCP humorLevel/connectiveDensity dampening)
+    let nrgMutation = 0;
+    if (session.engineStates.nrgMemory) {
+      const { mutation } = session.engineStates.nrgMemory.record(text);
+      nrgMutation = mutation;
+    }
+
     // 1. HFCP 실행
     if (activeEngines.includes("hfcp") && session.engineStates.hfcp) {
       const turnSignal: TurnSignal = {
         length: text.length,
         hasQuestion: /[?？]/.test(text),
-        humorLevel: signal?.humorLevel ?? 0,
-        connectiveDensity: signal?.connectiveDensity ?? 0,
+        humorLevel: (signal?.humorLevel ?? 0) * (1 - nrgMutation),
+        connectiveDensity: (signal?.connectiveDensity ?? 0) * (1 - nrgMutation),
         objectionMarker: signal?.objectionMarker ?? false,
       };
       session.engineStates.hfcp = updateScore(
@@ -350,6 +376,22 @@ export class SessionManager {
       });
     }
 
+    // 8. Memory Ecology 갱신 (HFCP 활성 시)
+    if (session.engineStates.memoryEcology) {
+      session.engineStates.memoryEcology = updateMemoryEcology(
+        session.engineStates.memoryEcology,
+        session.turnCount
+      );
+    }
+
+    // 9. Context State 갱신 — CoW 메시지 이력 (최근 50턴)
+    const frame = createMessageFrame(
+      `turn-${session.turnCount}`,
+      'USER',
+      text.length > 200 ? text.slice(0, 200) : text,
+    );
+    session.contextState = appendMessage(session.contextState, frame);
+
     session.lastUpdated = Date.now();
     return { session, status: this.getStatus(session) };
   }
@@ -391,6 +433,11 @@ export class SessionManager {
     const nibEvent = session.engineStates.lastNibEvent?.event ?? null;
     const nibConfidence = session.engineStates.lastNibEvent?.confidence ?? null;
 
+    // RCL Level — HFCP 점수 기반 반박 제어 수준
+    const rclLevel = session.engineStates.hfcp
+      ? computeRclLevel(session.engineStates.hfcp.score)
+      : null;
+
     // Mounted accessories
     const mountedAccessories = session.accessories
       .getMounted()
@@ -408,6 +455,7 @@ export class SessionManager {
       sovereignRiskLevel,
       nibEvent,
       nibConfidence,
+      rclLevel,
       activeEngines: session.resolved?.activeEngines ?? [],
       mountedAccessories,
     };
@@ -444,6 +492,7 @@ export class SessionManager {
         hfcp: null, hcrf: null, lastEhResult: null,
         ocfp: null, tlmh: null, sovereign: null,
         nib: null, lastNibEvent: null,
+        nrgMemory: null, memoryEcology: null,
       };
       session.accessories.unmountAll();
       session.lastUpdated = Date.now();
@@ -482,8 +531,14 @@ export class SessionManager {
     if (active.includes("hfcp")) {
       const mode: HfcpMode = (config?.hfcp?.mode as HfcpMode) ?? "CHAT";
       session.engineStates.hfcp = createHfcpState(mode);
+      session.engineStates.nrgMemory = new NrgMemory();
+      session.engineStates.memoryEcology = {
+        mii: 0, mds: 0.5, lastEpoch: Date.now(), freshnessDecay: 1.0,
+      };
     } else {
       session.engineStates.hfcp = null;
+      session.engineStates.nrgMemory = null;
+      session.engineStates.memoryEcology = null;
     }
 
     // HCRF
