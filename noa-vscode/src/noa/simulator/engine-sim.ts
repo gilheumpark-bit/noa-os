@@ -451,8 +451,8 @@ export class EngineSimulator {
         engine: "sovereign",
         field: "verdict",
         expected: exp.sovereignVerdict,
-        actual: status.sovereignMode,
-        pass: exp.sovereignVerdict === status.sovereignMode,
+        actual: status.sovereignKernelState,
+        pass: exp.sovereignVerdict === status.sovereignKernelState,
       });
     }
 
@@ -571,7 +571,10 @@ export class EngineSimulator {
       hcrfVerdict: null,
       ocfpGate: null,
       tlmhInvocation: null,
-      sovereignMode: null,
+      sovereignKernelState: null,
+      sovereignRiskLevel: null,
+      nibEvent: null,
+      nibConfidence: null,
       activeEngines: [],
       mountedAccessories: [],
     };

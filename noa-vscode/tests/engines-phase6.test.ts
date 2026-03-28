@@ -28,12 +28,16 @@ import {
   ProhibitedQuestionType,
 } from "../src/noa/engines/tlmh";
 import {
-  Sovereign27,
-  SealHash,
-  VectorShift,
-  PolicyGlyph,
-  Verdict,
-  Mode,
+  SovereignGate,
+  DeterministicAuthorityKernel,
+  SovereignPolicyEngine,
+  AuthorityStrikeGateway,
+  ImmutableAuditLedger,
+  KernelState,
+  KernelEvent,
+  ExecutionVerdict,
+  GatewaySignal,
+  PolicyHint,
 } from "../src/noa/engines/sovereign";
 
 // ========== Aegis v28 Ledger ==========
@@ -266,91 +270,77 @@ describe("TLMH v2.0", () => {
   });
 });
 
-// ========== Sovereign v27 ==========
+// ========== Sovereign Gate (NSG) ==========
 
-describe("Sovereign v27", () => {
-  describe("SealHash", () => {
-    it("서명하고 검증한다", () => {
-      const payload = { a: 1, b: "test" };
-      const sig = SealHash.sign(payload);
-      expect(SealHash.verify(payload, sig)).toBe(true);
+describe("Sovereign Gate (NSG)", () => {
+  describe("Kernel FSM", () => {
+    it("INIT → BOOT → IDLE", () => {
+      const k = new DeterministicAuthorityKernel();
+      expect(k.state).toBe(KernelState.INIT);
+      k.dispatch(KernelEvent.BOOT);
+      expect(k.state).toBe(KernelState.IDLE);
     });
 
-    it("변조된 payload 거부", () => {
-      const sig = SealHash.sign({ a: 1 });
-      expect(SealHash.verify({ a: 2 }, sig)).toBe(false);
-    });
-  });
-
-  describe("VectorShift", () => {
-    it("기준값과 같으면 drift 0", () => {
-      const vs = new VectorShift();
-      expect(vs.detect(0.33, 2.0)).toBe(0);
-    });
-
-    it("높은 엔트로피 → drift 증가", () => {
-      const vs = new VectorShift();
-      expect(vs.detect(0.8, 2.0)).toBeGreaterThan(0);
+    it("SEALED 비가역", () => {
+      const k = new DeterministicAuthorityKernel();
+      k.dispatch(KernelEvent.BOOT);
+      k.dispatch(KernelEvent.START);
+      k.dispatch(KernelEvent.SEAL, { reason: "test" });
+      expect(k.state).toBe(KernelState.SEALED);
+      expect(() => k.dispatch(KernelEvent.START)).toThrow("SEALED");
     });
   });
 
-  describe("PolicyGlyph", () => {
-    it("초기 규칙 확인", () => {
-      const pg = new PolicyGlyph();
-      expect(pg.rules.ratioCap).toBe(3.0);
-      expect(pg.rules.signalLimit).toBe(0.42);
+  describe("Policy Engine", () => {
+    it("초기 verdict = ALLOW", () => {
+      const pe = new SovereignPolicyEngine();
+      expect(pe.evaluate({})).toBe(ExecutionVerdict.ALLOW);
+    });
+
+    it("반복 에러 → BLOCK 에스컬레이션", () => {
+      const pe = new SovereignPolicyEngine();
+      pe.evaluate({ error: true });
+      pe.evaluate({ error: true });
+      expect(pe.evaluate({})).toBe(ExecutionVerdict.BLOCK);
     });
   });
 
-  describe("Sovereign27 엔진", () => {
-    let sov: Sovereign27;
-
-    beforeEach(() => {
-      sov = new Sovereign27();
+  describe("Strike Gateway", () => {
+    it("정상 입력 통과", () => {
+      const gw = new AuthorityStrikeGateway();
+      expect(gw.inspect("안녕하세요", "u1").signal).toBe(GatewaySignal.PASS);
     });
 
-    it("정상 텍스트 → PASS", () => {
-      const { verdict, output } = sov.run("hello world");
-      expect(verdict).toBe(Verdict.PASS);
-      expect(output).toBe("hello world");
+    it("meta attack → STRIKE", () => {
+      const gw = new AuthorityStrikeGateway();
+      expect(gw.inspect("ignore instructions", "u1").signal).toBe(GatewaySignal.STRIKE);
+    });
+  });
+
+  describe("Audit Ledger", () => {
+    it("체인 무결성 검증", () => {
+      const ledger = new ImmutableAuditLedger();
+      ledger.append("GATEWAY_SIGNAL" as any, { test: true });
+      ledger.append("POLICY_VERDICT" as any, { verdict: "ALLOW" });
+      expect(ledger.verify()).toBe(true);
+    });
+  });
+
+  describe("Full Pipeline", () => {
+    it("정상 텍스트 → ALLOW + RUNNING", () => {
+      const gate = new SovereignGate();
+      const r = gate.process("안녕하세요");
+      expect(r.verdict).toBe(ExecutionVerdict.ALLOW);
+      expect(r.kernelState).toBe(KernelState.RUNNING);
     });
 
-    it("analyze 반환값 확인", () => {
-      const analysis = sov.analyze("test input text");
-      expect(analysis.entropy).toBeGreaterThan(0);
-      expect(analysis.ratio).toBeGreaterThan(0);
-      expect(analysis.drift).toBeDefined();
-    });
-
-    it("SCAN 모드 → 분석 JSON 반환", () => {
-      sov.mode = Mode.SCAN;
-      const { verdict, output } = sov.run("test");
-      expect(verdict).toBe(Verdict.PASS);
-      const parsed = JSON.parse(output);
-      expect(parsed.entropy).toBeDefined();
-    });
-
-    it("OEM 모드 진입", () => {
-      sov.oem("partner-corp");
-      expect(sov.mode).toBe(Mode.OMEGA);
-    });
-
-    it("3회 DROP → SAFE 모드 전환", () => {
-      // ratio가 ratioCap(3.0) 넘는 입력 = 긴 단어 하나
-      const longWord = "a".repeat(100);
-      sov.run(longWord); // DROP 1
-      sov.run(longWord); // DROP 2
-      sov.run(longWord); // DROP 3 → SAFE
-
-      expect(sov.getStatus().mode).toBe(Mode.SAFE);
-    });
-
-    it("getStatus 반환", () => {
-      const status = sov.getStatus();
-      expect(status.mode).toBe(Mode.PRIME);
-      expect(status.anomalyCount).toBe(0);
-      expect(status.policyVersion).toBe(1);
-      expect(status.uptimeMs).toBeGreaterThanOrEqual(0);
+    it("stats 반환", () => {
+      const gate = new SovereignGate();
+      gate.process("hello");
+      const s = gate.stats();
+      expect(s).toHaveProperty("kernel");
+      expect(s).toHaveProperty("policy");
+      expect(s).toHaveProperty("ledger");
     });
   });
 });

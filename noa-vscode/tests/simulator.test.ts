@@ -308,7 +308,7 @@ describe("Engine Simulator — 전수 시뮬레이션", () => {
       mgr.createSession(sessionId);
       mgr.wear(sessionId, presetId);
       const { status } = mgr.processTurn(sessionId, "테스트 입력");
-      expect(status.sovereignMode).not.toBeNull();
+      expect(status.sovereignKernelState).not.toBeNull();
     }
   });
 });

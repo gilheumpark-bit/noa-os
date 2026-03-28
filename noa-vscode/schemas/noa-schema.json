@@ -147,6 +147,24 @@
             "enabled": { "type": "boolean" },
             "invitation_only": { "type": "boolean" }
           }
+        },
+        "sovereign": {
+          "type": "object",
+          "description": "Sovereign Gate (NSG) — 5파트 보안 커널. 항상 활성.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "spike_threshold": { "type": "number", "minimum": 0.5, "maximum": 10.0 },
+            "entropy_threshold": { "type": "number", "minimum": 0.1, "maximum": 1.0 }
+          }
+        },
+        "nib": {
+          "type": "object",
+          "description": "Invariant Bridge (NIB) — 시간축 패턴 분석. 항상 활성.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "window_size": { "type": "integer", "minimum": 4, "maximum": 50, "default": 12 },
+            "history_size": { "type": "integer", "minimum": 4, "maximum": 50, "default": 8 }
+          }
         }
       }
     },

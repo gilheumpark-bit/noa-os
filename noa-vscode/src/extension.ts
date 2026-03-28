@@ -1,7 +1,4 @@
 import * as vscode from "vscode";
-import { registerWearCommand } from "./commands/wear";
-import { registerStripCommand } from "./commands/strip";
-import { registerSwapCommand } from "./commands/swap";
 import { registerCompileCommand } from "./commands/compile";
 import { registerExportCommand } from "./commands/export";
 import { registerExplainCommand } from "./commands/explain";
@@ -229,7 +226,15 @@ function registerSwapWithSession(
 
 function updateStatusBar(
   statusBar: vscode.StatusBarItem,
-  status: { layerNames: string[]; hfcpScore: number | null; ehLevel: string | null }
+  status: {
+    layerNames: string[];
+    hfcpScore: number | null;
+    ehLevel: string | null;
+    sovereignKernelState: string | null;
+    sovereignRiskLevel: string | null;
+    nibEvent: string | null;
+    nibConfidence: number | null;
+  }
 ): void {
   if (status.layerNames.length === 0) {
     statusBar.text = "$(person) NOA: 없음";
@@ -238,11 +243,19 @@ function updateStatusBar(
   }
 
   const names = status.layerNames.join(" + ");
-  const hfcp = status.hfcpScore !== null ? ` [HFCP: ${status.hfcpScore}]` : "";
-  const eh = status.ehLevel ? ` [EH: ${status.ehLevel}]` : "";
+  const hfcp = status.hfcpScore !== null ? ` [HFCP:${status.hfcpScore}]` : "";
+  const eh = status.ehLevel ? ` [EH:${status.ehLevel}]` : "";
+  const sov = status.sovereignKernelState ? ` [NSG:${status.sovereignKernelState}]` : "";
+  const nib = status.nibEvent && status.nibEvent !== "BACKGROUND"
+    ? ` [NIB:${status.nibEvent}]`
+    : "";
 
-  statusBar.text = `$(person) ${names}${hfcp}${eh}`;
-  statusBar.tooltip = `활성 레이어: ${names}`;
+  statusBar.text = `$(person) ${names}${hfcp}${eh}${sov}${nib}`;
+  statusBar.tooltip = [
+    `활성 레이어: ${names}`,
+    status.sovereignRiskLevel ? `리스크: ${status.sovereignRiskLevel}` : null,
+    status.nibConfidence != null ? `NIB 확신도: ${(status.nibConfidence * 100).toFixed(0)}%` : null,
+  ].filter(Boolean).join(" | ");
 }
 
 // --- 프리셋 로드 ---

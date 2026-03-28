@@ -36,7 +36,7 @@ policies:
 engines:
   hfcp:
     enabled: true
-    mode: "STANDARD"
+    mode: "CHAT"
   eh:
     enabled: true
     domain_weight: 1.0

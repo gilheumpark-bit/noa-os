@@ -36,24 +36,15 @@ import {
   OutputVerdict,
   HcrfMode,
 } from "../engines/hcrf";
-import {
-  OcfpEngine,
-  type InteractionGate,
-  type RiskAssessment,
-} from "../engines/ocfp";
+import { OcfpEngine } from "../engines/ocfp";
 import {
   processTlmhTurn,
   createInitialTlmhState,
   type TlmhState,
-  type TlmhProcessResult,
 } from "../engines/tlmh";
 import {
   SovereignGate,
-  KernelState,
-  ExecutionVerdict,
-  GatewaySignal,
   PolicyHint,
-  type RiskLevel,
 } from "../engines/sovereign";
 import {
   InvariantBridge,
@@ -76,6 +67,12 @@ export interface SessionSnapshot {
   accessories: AccessoryManager;
   createdAt: number;
   lastUpdated: number;
+  /** NIB 피딩용 — 이전 턴 HFCP 점수 */
+  prevHfcpScore: number;
+  /** NIB 피딩용 — 텍스트 길이 러닝 평균 */
+  avgTextLength: number;
+  /** NIB 피딩용 — 총 턴 수 */
+  turnCount: number;
 }
 
 export interface LayerEntry {
@@ -150,6 +147,9 @@ export class SessionManager {
       accessories: new AccessoryManager(),
       createdAt: Date.now(),
       lastUpdated: Date.now(),
+      prevHfcpScore: 60,
+      avgTextLength: 100,
+      turnCount: 0,
     };
     session.ledger.record("SESSION_START", { sessionId });
     this.sessions.set(sessionId, session);
@@ -288,15 +288,19 @@ export class SessionManager {
       session.engineStates.tlmh = result.state;
     }
 
+    // 턴 카운트 + 텍스트 길이 러닝 평균 갱신
+    session.turnCount++;
+    session.avgTextLength = session.avgTextLength + (text.length - session.avgTextLength) / session.turnCount;
+
     // 6. NIB — 엔진 결과를 시간축 패턴 분석에 투입
     if (session.engineStates.nib) {
       const nib = session.engineStates.nib;
 
-      // HFCP 점수 변화를 NIB에 피딩
+      // HFCP 점수 변화를 NIB에 피딩 (실제 이전 턴 값 사용)
       if (session.engineStates.hfcp) {
         const hfcpScore = session.engineStates.hfcp.score;
-        const prevScore = session.engineStates.hfcp.score - (session.engineStates.hfcp.score * 0.02); // approximate
-        nib.process('hfcp_score', { score: hfcpScore, prev: prevScore });
+        nib.process('hfcp_score', { score: hfcpScore, prev: session.prevHfcpScore });
+        session.prevHfcpScore = hfcpScore;
       }
 
       // EH 리스크를 NIB에 피딩
@@ -307,10 +311,10 @@ export class SessionManager {
         });
       }
 
-      // 텍스트 길이를 NIB에 피딩
+      // 텍스트 길이를 NIB에 피딩 (러닝 평균 사용)
       const nibEvent = nib.process('text_length', {
         length: text.length,
-        avgLength: 100,
+        avgLength: session.avgTextLength,
       });
       session.engineStates.lastNibEvent = nibEvent;
 

@@ -180,6 +180,8 @@ const FIELD_DOCS: Record<string, string> = {
   hcrf: "HCRF v1.2 — 책임 게이트. authority_transfer_block으로 권한 이양 차단.",
   ocfp: "OCFP v2.0 — 조직/기업 필터. seal_duration(분), risk_limit(횟수).",
   tlmh: "TLMH v2.0 — 연구 파트너 모드. invitation_only: 명시적 초대만 허용.",
+  sovereign: "Sovereign Gate (NSG) v1.0 — 5파트 보안 커널. FSM + 정책 + 게이트웨이 + 감사 + 스파이크. 항상 활성.",
+  nib: "Invariant Bridge (NIB) v1.0 — 시간축 패턴 분석. 슬라이딩 윈도우 7특징 추출. 항상 활성.",
 };
 
 export function registerHover(context: vscode.ExtensionContext): void {

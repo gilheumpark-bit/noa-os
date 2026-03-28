@@ -184,6 +184,22 @@ function formatStatus(mgr: SessionManager): string {
   if (status.hcrfVerdict !== null) {
     lines.push(`- HCRF: ${status.hcrfVerdict}`);
   }
+  if (status.ocfpGate !== null) {
+    lines.push(`- OCFP: ${status.ocfpGate}`);
+  }
+  if (status.tlmhInvocation !== null) {
+    lines.push(`- TLMH: ${status.tlmhInvocation}`);
+  }
+  if (status.sovereignKernelState !== null) {
+    lines.push(`- NSG Kernel: ${status.sovereignKernelState} (Risk: ${status.sovereignRiskLevel ?? "—"})`);
+  }
+  if (status.nibEvent !== null) {
+    const conf = status.nibConfidence != null ? ` (${(status.nibConfidence * 100).toFixed(0)}%)` : "";
+    lines.push(`- NIB: ${status.nibEvent}${conf}`);
+  }
+  if (status.mountedAccessories.length > 0) {
+    lines.push(`- 악세사리: ${status.mountedAccessories.join(", ")}`);
+  }
 
   return lines.join("\n");
 }
