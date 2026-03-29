@@ -66,6 +66,13 @@ import {
 } from "../engines/ledger";
 import { AccessoryManager } from "./accessories";
 
+// --- NIB → NSG PolicyHint 변환 맵 (static, 매 턴 재생성 방지) ---
+const NIB_TO_NSG_HINT: Record<string, PolicyHint> = {
+  [BridgeEvent.TRANSIENT_ANOMALY]: PolicyHint.SPIKE_WARNING,
+  [BridgeEvent.PERSISTENT_ANOMALY]: PolicyHint.STRUCTURE_DRIFT,
+  [BridgeEvent.STRUCTURAL_VIOLATION]: PolicyHint.ADVERSARIAL_BEHAVIOR,
+};
+
 // --- Session State ---
 
 export interface SessionSnapshot {
@@ -94,10 +101,31 @@ export interface LayerEntry {
   active: boolean;
 }
 
+/** HCRF 런타임 튜닝 */
+export interface HcrfTuning {
+  pressureWeight?: number;
+  sealThreshold?: number;
+}
+
+/** OCFP 런타임 튜닝 */
+export interface OcfpTuning {
+  riskScoreHr?: number;
+  riskScoreLegal?: number;
+}
+
+/** Sovereign 런타임 튜닝 */
+export interface SovereignTuning {
+  ratioCap?: number;
+  signalLimit?: number;
+}
+
 /** 밴드 옵티마이저에서 주입하는 엔진 튜닝 오버라이드 */
 export interface EngineTuningOverride {
   eh?: EhTuning;
   hfcp?: HfcpTuning;
+  hcrf?: HcrfTuning;
+  ocfp?: OcfpTuning;
+  sovereign?: SovereignTuning;
 }
 
 export interface EngineStates {
@@ -358,12 +386,7 @@ export class SessionManager {
 
       // NIB 이벤트 → NSG PolicyHint 변환
       if (nibEvent && nibEvent.event !== BridgeEvent.BACKGROUND) {
-        const hintMap: Record<string, PolicyHint> = {
-          [BridgeEvent.TRANSIENT_ANOMALY]: PolicyHint.SPIKE_WARNING,
-          [BridgeEvent.PERSISTENT_ANOMALY]: PolicyHint.STRUCTURE_DRIFT,
-          [BridgeEvent.STRUCTURAL_VIOLATION]: PolicyHint.ADVERSARIAL_BEHAVIOR,
-        };
-        const hint = hintMap[nibEvent.event] ?? PolicyHint.NONE;
+        const hint = NIB_TO_NSG_HINT[nibEvent.event] ?? PolicyHint.NONE;
         sov.policy.evaluate({ hint });
       }
 

@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 import type { SessionManager, SessionStatus } from "../noa/runtime/session";
 import { explainField } from "../noa/compiler/explain";
+import { compile } from "../noa/compiler/pipeline";
+import { exportArtifact } from "../noa/compiler/export";
+import type { CompatibilityTarget } from "../noa/schema/noa-schema";
 
 /**
  * Copilot Chat Participant — @noa 명령어 처리.
@@ -131,7 +134,6 @@ async function handleChatRequest(
     }
 
     case "process": {
-      // 텍스트를 엔진에 통과시켜 분석
       const text = args.join(" ");
       if (!text) {
         stream.markdown("사용법: `@noa process <텍스트>`");
@@ -139,13 +141,69 @@ async function handleChatRequest(
       }
       try {
         const { status } = sessionMgr.processTurn(DEFAULT_SESSION, text);
+        const rows = [
+          `| 엔진 | 결과 | 상세 |`,
+          `|------|------|------|`,
+          `| HFCP | ${status.hfcpScore ?? "—"} | ${status.hfcpVerdict ?? "비활성"} / RCL: ${status.rclLevel ?? "—"} |`,
+          `| EH | ${status.ehLevel ?? "—"} | 신뢰도 수준 |`,
+          `| HCRF | ${status.hcrfVerdict ?? "—"} | 책임 게이트 |`,
+          `| OCFP | ${status.ocfpGate ?? "—"} | 조직 필터 |`,
+          `| TLMH | ${status.tlmhInvocation ?? "—"} | 연구 모드 |`,
+          `| NSG | ${status.sovereignKernelState ?? "—"} | Risk: ${status.sovereignRiskLevel ?? "—"} |`,
+          `| NIB | ${status.nibEvent ?? "—"} | Confidence: ${status.nibConfidence != null ? (status.nibConfidence * 100).toFixed(0) + "%" : "—"} |`,
+        ];
+        stream.markdown(`**엔진 분석 결과**\n\n${rows.join("\n")}`);
+      } catch (e) {
+        stream.markdown(`오류: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      break;
+    }
+
+    case "list": {
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!session) {
+        stream.markdown("세션이 없습니다.");
+        return;
+      }
+      const layers = session.activeLayers.map(
+        (l) => `- **${l.source.file.meta.name}** (${l.source.file.kind}, p${l.source.file.priority})`
+      );
+      stream.markdown(
+        `**등록된 레이어 (${layers.length}개)**\n\n` +
+        (layers.length > 0 ? layers.join("\n") : "없음 — `@noa wear` 로 입히세요")
+      );
+      break;
+    }
+
+    case "validate": {
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!session?.diagnostics) {
+        stream.markdown("컴파일된 프로필이 없습니다.");
+        return;
+      }
+      const diags = session.diagnostics;
+      if (diags.length === 0) {
+        stream.markdown("검증 통과 — 문제 없음.");
+      } else {
+        const rows = diags.map(
+          (d) => `- [${d.severity.toUpperCase()}] ${d.path ?? ""}: ${d.message}`
+        );
+        stream.markdown(`**검증 결과 (${diags.length}건)**\n\n${rows.join("\n")}`);
+      }
+      break;
+    }
+
+    case "export": {
+      const target = (args[0] ?? "claude") as CompatibilityTarget;
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!session?.resolved) {
+        stream.markdown("컴파일된 프로필이 없습니다. 먼저 `@noa wear`를 실행하세요.");
+        return;
+      }
+      try {
+        const artifact = exportArtifact(session.resolved, target);
         stream.markdown(
-          `⚙️ **엔진 처리 결과**\n\n` +
-          `- HFCP 점수: ${status.hfcpScore ?? "비활성"}\n` +
-          `- HFCP Verdict: ${status.hfcpVerdict ?? "—"}\n` +
-          `- EH 신뢰도: ${status.ehLevel ?? "비활성"}\n` +
-          `- HCRF Verdict: ${status.hcrfVerdict ?? "비활성"}\n` +
-          `- 활성 엔진: ${status.activeEngines.join(", ") || "없음"}`
+          `**${target} 내보내기 완료**\n\n\`\`\`\n${artifact.content.slice(0, 1000)}${artifact.content.length > 1000 ? "\n...(truncated)" : ""}\n\`\`\``
         );
       } catch (e) {
         stream.markdown(`오류: ${e instanceof Error ? e.message : String(e)}`);
@@ -153,15 +211,40 @@ async function handleChatRequest(
       break;
     }
 
+    case "ledger": {
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!session) {
+        stream.markdown("세션이 없습니다.");
+        return;
+      }
+      const count = parseInt(args[0] ?? "5", 10);
+      const events = session.ledger.getRecent(count);
+      if (events.length === 0) {
+        stream.markdown("감사 로그가 비어있습니다.");
+      } else {
+        const rows = events.map(
+          (e) => `- [${new Date(e.timestamp).toLocaleTimeString()}] **${e.eventType}** \`${e.hash.slice(0, 12)}...\``
+        );
+        stream.markdown(`**최근 감사 로그 (${events.length}건)**\n\n${rows.join("\n")}`);
+      }
+      break;
+    }
+
     default:
       stream.markdown(
         "**@noa 명령어 목록:**\n\n" +
-        "- `@noa wear <name>` — 페르소나 입기\n" +
-        "- `@noa strip <name>` — 페르소나 벗기\n" +
-        "- `@noa swap <old> <new>` — 페르소나 교체\n" +
-        "- `@noa explain [field]` — 규칙 적용 이유\n" +
-        "- `@noa process <text>` — 텍스트 엔진 분석\n" +
-        "- `@noa status` — 현재 상태 확인"
+        "| 명령 | 설명 |\n" +
+        "|------|------|\n" +
+        "| `wear <name>` | 페르소나 입기 |\n" +
+        "| `strip <name>` | 페르소나 벗기 |\n" +
+        "| `swap <old> <new>` | 페르소나 교체 |\n" +
+        "| `explain [field]` | 규칙 적용 이유 |\n" +
+        "| `process <text>` | 텍스트 엔진 분석 (전 엔진 테이블) |\n" +
+        "| `status` | 현재 상태 확인 |\n" +
+        "| `list` | 등록된 레이어 목록 |\n" +
+        "| `validate` | 현재 프로필 검증 |\n" +
+        "| `export [target]` | Claude/GPT/Local 내보내기 |\n" +
+        "| `ledger [n]` | 최근 감사 로그 (기본 5) |"
       );
   }
 }

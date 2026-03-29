@@ -435,6 +435,18 @@ export class BandOptimizer {
         loadLevelingLow: get("hfcp.load_leveling_low"),
         hysteresisFactor: get("hfcp.hysteresis_factor"),
       },
+      hcrf: {
+        pressureWeight: get("hcrf.pressure_weight"),
+        sealThreshold: get("hcrf.seal_threshold"),
+      },
+      ocfp: {
+        riskScoreHr: get("ocfp.risk_score_hr"),
+        riskScoreLegal: get("ocfp.risk_score_legal"),
+      },
+      sovereign: {
+        ratioCap: get("sovereign.ratio_cap"),
+        signalLimit: get("sovereign.signal_limit"),
+      },
     };
   }
 
