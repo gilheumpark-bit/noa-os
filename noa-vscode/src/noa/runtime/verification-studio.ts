@@ -379,14 +379,23 @@ export interface LoopResult {
 
 const MAX_LOOP_ITERATIONS = 3;
 
+/**
+ * recompile+getStatus 콜백 — SessionManager가 주입.
+ * auto-fix 적용 후 진짜 compiler roundtrip을 타서 fresh status를 반환.
+ */
+export type RecomputeCallback = () => SessionStatus;
+
 export function verificationLoop(
   session: SessionSnapshot,
   status: SessionStatus,
-  maxIterations: number = MAX_LOOP_ITERATIONS
+  maxIterations: number = MAX_LOOP_ITERATIONS,
+  recompute?: RecomputeCallback
 ): LoopResult {
   const allApplied: FixSuggestion[] = [];
+  const appliedIds = new Set<string>();
   let iterations = 0;
-  let result = verify(session, status);
+  let currentStatus = status;
+  let result = verify(session, currentStatus);
 
   while (iterations < maxIterations) {
     iterations++;
@@ -401,19 +410,29 @@ export function verificationLoop(
       };
     }
 
-    const autoFixable = result.suggestions.filter((s) => s.autoFixable);
+    // 이미 적용한 fix는 제외 (중복 방지)
+    const autoFixable = result.suggestions.filter(
+      (s) => s.autoFixable && !appliedIds.has(s.id)
+    );
     if (autoFixable.length === 0) {
       break;
     }
 
     const fixResult = autoFix(session, autoFixable);
-    allApplied.push(...fixResult.applied);
+    for (const f of fixResult.applied) {
+      allApplied.push(f);
+      appliedIds.add(f.id);
+    }
 
     if (fixResult.applied.length === 0) {
       break;
     }
 
-    result = verify(session, status);
+    // 진짜 recompile roundtrip → fresh status 획득
+    if (recompute) {
+      currentStatus = recompute();
+    }
+    result = verify(session, currentStatus);
   }
 
   const humanRequired = result.suggestions.filter((s) => !s.autoFixable);

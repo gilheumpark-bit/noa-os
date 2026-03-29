@@ -29,6 +29,20 @@ export function activate(context: vscode.ExtensionContext) {
     console.warn("프리셋 로드 실패:", e);
   });
 
+  // .noa 파일 실시간 watcher — 생성/수정/삭제 추적
+  const noaWatcher = vscode.workspace.createFileSystemWatcher("**/*.noa");
+  noaWatcher.onDidCreate((uri) => {
+    loadSinglePreset(uri, registry, sessionMgr);
+  });
+  noaWatcher.onDidChange((uri) => {
+    loadSinglePreset(uri, registry, sessionMgr);
+  });
+  noaWatcher.onDidDelete((uri) => {
+    const name = uri.path.split("/").pop()?.replace(".noa", "") ?? "";
+    console.log(`NOA 프리셋 삭제 감지: ${name}`);
+  });
+  context.subscriptions.push(noaWatcher);
+
   // 상태바
   const statusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
@@ -281,5 +295,21 @@ async function loadPresetsIntoRegistry(
     } catch (e) {
       console.warn(`NOA 프리셋 파싱 실패: ${uri.fsPath}`, e);
     }
+  }
+}
+
+async function loadSinglePreset(
+  uri: vscode.Uri,
+  registry: NoaRegistry,
+  sessionMgr: SessionManager
+): Promise<void> {
+  try {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const text = doc.getText();
+    const entry = registry.register(text, uri.fsPath);
+    sessionMgr.registerSource(entry.id, text, uri.fsPath);
+    console.log(`NOA 프리셋 등록/갱신: ${entry.name}`);
+  } catch (e) {
+    console.warn(`NOA 프리셋 파싱 실패: ${uri.fsPath}`, e);
   }
 }

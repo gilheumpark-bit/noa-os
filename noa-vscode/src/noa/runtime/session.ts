@@ -67,6 +67,7 @@ import {
 import { AccessoryManager } from "./accessories";
 import {
   enforce,
+  EnforcementAction,
   type EnforcementResult,
   type VerificationResult,
   verify as verifySession,
@@ -283,7 +284,18 @@ export class SessionManager {
     const session = this.requireSession(sessionId);
     if (!session.resolved) {
       const status = this.getStatus(session);
-      return { session, status, enforcement: enforce(status) };
+      // no-profile → DOWNGRADE 강제 (프로필 없이 ALLOW는 안전 정책 위반)
+      const enforcement: EnforcementResult = {
+        action: EnforcementAction.DOWNGRADE,
+        reasons: ["프로필 미적용 — NOA 정책 비활성 상태"],
+        restrictions: ["기본 응답만 허용, 엔진 검증 없음"],
+      };
+      session.ledger.record("ENFORCEMENT", {
+        action: enforcement.action,
+        reasons: enforcement.reasons,
+        noProfile: true,
+      });
+      return { session, status, enforcement };
     }
 
     const activeEngines = session.resolved.activeEngines;
@@ -444,12 +456,62 @@ export class SessionManager {
   }
 
   /**
-   * 검증 루프 — wear/recompile 후 자동 검증 + 수정 + 재검증.
+   * 검증 루프 — 자동 수정 후 recompile → getStatus → verify 진짜 roundtrip.
+   * ChangeManager와 연동: draft → verify → (결과에 따라 approve 대기)
    */
   runVerification(sessionId: string): LoopResult {
     const session = this.requireSession(sessionId);
+
+    // 변경 전 스냅샷 저장 (rollback 대비)
+    this.changeManager.draft(session);
+
     const status = this.getStatus(session);
-    return verificationLoop(session, status);
+
+    // recompute 콜백: auto-fix 후 recompile → fresh status
+    const recompute = () => {
+      this.recompile(session);
+      return this.getStatus(session);
+    };
+
+    const result = verificationLoop(session, status, 3, recompute);
+
+    // ChangeManager stage 전이
+    const latest = this.changeManager.getLatest();
+    if (latest) {
+      this.changeManager.markVerified(latest.id, result.finalResult);
+    }
+
+    return result;
+  }
+
+  /**
+   * 마지막 적용된 변경을 롤백 — 세션을 스냅샷 시점으로 복원.
+   */
+  rollback(sessionId: string): boolean {
+    const session = this.requireSession(sessionId);
+    const latest = this.changeManager.getLatestApplied();
+    if (!latest) return false;
+
+    const snapshotJson = this.changeManager.getSnapshot(latest.id);
+    if (!snapshotJson) return false;
+
+    // 스냅샷에서 레이어 목록 복원
+    try {
+      const snap = JSON.parse(snapshotJson);
+      session.activeLayers = [];
+      for (const layerInfo of snap.activeLayers ?? []) {
+        const source = this.sourceRegistry.get(layerInfo.fileId);
+        if (source) {
+          session.activeLayers.push({ source, active: layerInfo.active });
+        }
+      }
+      this.recompile(session);
+      this.changeManager.markRolledBack(latest.id);
+      session.ledger.record("ROLLBACK", { changeId: latest.id });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getStatus(session: SessionSnapshot): SessionStatus {

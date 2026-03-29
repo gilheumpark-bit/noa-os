@@ -367,6 +367,30 @@ describe("Verification — verificationLoop()", () => {
     expect(result.appliedFixes.length).toBeGreaterThanOrEqual(0);
   });
 
+  it("recompute 콜백이 주어지면 fresh status로 재검증", () => {
+    const session = mgr.getSession("test")!;
+    const status = mgr.getStatus(session);
+    let recomputeCount = 0;
+    const recompute = () => {
+      recomputeCount++;
+      return mgr.getStatus(session);
+    };
+    const result = verificationLoop(session, status, 3, recompute);
+
+    // 정상 프로필이므로 1회에 PASSED, recompute 호출 안 됨
+    expect(result.outcome).toBe(LoopOutcome.PASSED);
+    expect(recomputeCount).toBe(0);
+  });
+
+  it("runVerification은 ChangeManager와 연동", () => {
+    const loopResult = mgr.runVerification("test");
+    expect(loopResult.outcome).toBeDefined();
+    // draft가 생성되었는지 확인
+    const latest = mgr.changeManager.getLatest();
+    expect(latest).not.toBeNull();
+    expect(latest!.verification).not.toBeNull();
+  });
+
   it("3회 초과 시 ESCALATED", () => {
     const session = mgr.getSession("test")!;
     // 프로필 제거 → 항상 실패하는 상태
@@ -564,11 +588,23 @@ describe("Verification — processTurn enforcement 통합", () => {
     }
   });
 
-  it("프로필 없는 세션에서 processTurn → enforcement 반환 (에러 아님)", () => {
+  it("프로필 없는 세션에서 processTurn → DOWNGRADE (ALLOW 아님)", () => {
     mgr.createSession("empty");
     const result = mgr.processTurn("empty", "테스트");
     expect(result.enforcement).toBeDefined();
-    expect(result.enforcement.action).toBe(EnforcementAction.ALLOW);
+    expect(result.enforcement.action).toBe(EnforcementAction.DOWNGRADE);
+    expect(result.enforcement.reasons).toContainEqual(
+      expect.stringContaining("프로필 미적용")
+    );
+  });
+
+  it("프로필 없는 세션에서도 Ledger에 ENFORCEMENT 기록", () => {
+    mgr.createSession("empty");
+    mgr.processTurn("empty", "테스트");
+    const session = mgr.getSession("empty")!;
+    const events = session.ledger.filterByType("ENFORCEMENT");
+    expect(events.length).toBeGreaterThanOrEqual(1);
+    expect(events[0].payload).toHaveProperty("noProfile", true);
   });
 
   it("runVerification 호출 가능", () => {

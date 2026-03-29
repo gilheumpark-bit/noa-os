@@ -270,16 +270,14 @@ async function handleChatRequest(
     }
 
     case "rollback": {
-      const mgr = sessionMgr.changeManager;
-      const latest = mgr.getLatestApplied();
-      if (!latest) {
-        stream.markdown("롤백할 변경이 없습니다.");
+      const success = sessionMgr.rollback(DEFAULT_SESSION);
+      if (!success) {
+        stream.markdown("롤백할 변경이 없거나 복원에 실패했습니다.");
         return;
       }
-      mgr.markRolledBack(latest.id);
+      const newStatus = formatStatus(sessionMgr);
       stream.markdown(
-        `**롤백 완료** — 변경 ${latest.id}를 롤백했습니다.\n\n` +
-        `이전 상태 스냅샷이 복원 준비됨. \`@noa wear\`로 다시 입혀주세요.`
+        `**롤백 완료** — 이전 상태로 복원되었습니다.\n\n${newStatus}`
       );
       break;
     }
