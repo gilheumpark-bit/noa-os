@@ -5,5 +5,12 @@ tests/**
 node_modules/**
 .gitignore
 tsconfig.json
+package-lock.json
+CONTRIBUTING.md
+TEAM_PROCESS.md
 **/*.ts
 !out/**
+!presets/**
+!schemas/**
+!syntaxes/**
+!language-configuration.json
