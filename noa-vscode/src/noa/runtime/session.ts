@@ -282,7 +282,8 @@ export class SessionManager {
   } {
     const session = this.requireSession(sessionId);
     if (!session.resolved) {
-      return { session, status: this.getStatus(session) };
+      const status = this.getStatus(session);
+      return { session, status, enforcement: enforce(status) };
     }
 
     const activeEngines = session.resolved.activeEngines;
