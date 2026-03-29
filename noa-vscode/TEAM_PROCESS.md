@@ -43,11 +43,57 @@
 
 NOA Clothing Framework 프로젝트에서의 적용:
 
-- **Lead Gate** = `NOA-EXEC` 파이프라인 (75점 품질 게이트 + 편향 체크리스트)
+- **Lead Gate** = `Verification-First Studio` (5중 잠금 ChangeManager + 75점 게이트)
 - **QA** = `noa-3persona-review` 스킬 (Safety/Performance/Conciseness 3관점 검사)
-- **미구현 탐지** = `E3 완성도 검증` (TODO/FIXME/pass/stub 탐지)
-- **Production Gate** = `E4 75점 게이트` + `E6 편향 체크리스트`
+- **미구현 탐지** = `verify()` 통합 검증 (compiler diagnostics + 9엔진 집계)
+- **자동 수정** = `autoFix()` + `verificationLoop()` (recompile roundtrip, 3회 제한)
+- **Production Gate** = `enforce()` EnforcementGate (ALLOW~SEAL 5단계)
+- **CI Gate** = GitHub Actions (typecheck → lint → test → build → smoke)
 
 ---
 
-*Last updated: 2026-03-28*
+## 4. Verification-First 워크플로
+
+```
+[변경 요청]
+    │
+    ▼
+[ChangeManager.draft()] ── 스냅샷 저장
+    │
+    ▼
+[recompile + verify()] ── 75점 게이트
+    │
+    ├── 통과 → [VERIFIED]
+    │              │
+    │              ▼
+    │         [approve()] ── 사람 승인
+    │              │
+    │              ▼
+    │         [markApplied()]
+    │              │
+    │              ▼
+    │         [APPLIED] ◄── rollback 가능
+    │
+    └── 실패 → [autoFix()] ── 자동 수정
+                   │
+                   ▼
+              [recompile → verify] ── 재검증 (최대 3회)
+                   │
+                   ├── 통과 → [VERIFIED] (위와 동일)
+                   └── 3회 실패 → [ESCALATED] → 사람에게 넘김
+```
+
+---
+
+## 5. 감사 추적 보장
+
+모든 성공/실패 경로에서 Ledger 기록:
+- WEAR / WEAR_ROLLED_BACK
+- ENFORCEMENT (no-profile 포함)
+- AUTO_FIX / RECOMPILE_AFTER_FIX
+- ROLLBACK / ROLLBACK_FAILED
+- VERIFICATION_ESCALATED
+
+---
+
+*Last updated: 2026-03-29*

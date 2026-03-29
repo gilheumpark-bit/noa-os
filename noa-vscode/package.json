@@ -2,7 +2,7 @@
   "name": "noa-clothing-framework",
   "displayName": "NOA Clothing Framework",
   "description": "AI한테 입히는 옷 — .noa 파일로 AI 페르소나, 정책, 행동 규칙을 정의하고 컴파일",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "noa-os",
   "license": "MIT",
   "repository": {

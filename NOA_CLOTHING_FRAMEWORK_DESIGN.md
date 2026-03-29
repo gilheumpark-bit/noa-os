@@ -442,88 +442,91 @@ eh_score = max(10, 100 - final_risk)
 
 ---
 
-### 6.8 이식 전략 요약
+### 6.8 엔진 현황 (구현 완료)
 
-| 엔진 | 이식할 함수 수 | 이식할 상수 | 감사 로그 | .noa engines 블록 |
-|------|-------------|-----------|----------|-----------------|
-| HFCP | 7 핵심 + NRG + RCL | 9개 | × | hfcp.mode, hfcp.score_cap |
-| HCRF | 5파트 × 핵심함수 | 4개 | ○ (Part 5) | hcrf.authority_transfer_block |
-| EH | 4 탐지모듈 + 리스크공식 | 5 도메인가중치 | ○ | eh.domain_weight, eh.source_credibility |
-| OCFP | 5파트 전부 | RISK_LIMIT=3 | ○ (Part 3 → ledger 통합) | ocfp.seal_duration, ocfp.risk_limit |
-| TLMH | 초대/질문필터/침묵 | 40+ 금지패턴 | × | tlmh.invitation_only |
-| Sovereign | 3단계 파이프라인 | 4 정책값 | × | (policies.security로 대체) |
-| Aegis v28 | 해시체인 + CoW | GENESIS hash | ○ (기반) | (항상 활성) |
+| 엔진 | 버전 | 역할 | 감사 | 상태 |
+|------|------|------|------|------|
+| HFCP | v2.7 | 대화 에너지/점수 + NrgMemory + RclLevel + MemoryEcology | × | ✅ 세션 연동 |
+| EH | v16.4-R | 6도메인 할루시네이션 탐지 (원본 v15.9에서 업그레이드) | ○ | ✅ |
+| HCRF | v1.2 | 5파트 책임 게이트 | ○ | ✅ |
+| OCFP | v2.0 | 5파트 조직 필터 (riskLimit/sealDuration config 실적용) | ○ | ✅ |
+| TLMH | v2.0 | 초대 기반 연구 모드 | × | ✅ |
+| **NSG** | **v1.0** | **5파트 보안 커널 (DAK+SPE+ASG+IARL+BSSO)** — Sovereign v27 대체 | ○ | ✅ |
+| Ledger | v28 | 해시체인 감사 로그 + ContextState CoW | ○ | ✅ |
+| **NIB** | **v1.0** | **시간축 패턴 분석 (Invariant Bridge)** — 신규 | ○ | ✅ |
+| **Band Opt** | **v1.0** | **0.48~0.52 한계 밴드 엔진 파라미터 최적화 (11개 파라미터)** | × | ✅ |
 
-각 엔진은 `.noa` 파일의 `engines:` 블록에서 활성/비활성 및 파라미터 조정 가능.
+### 6.9 Verification-First Studio (신규)
 
----
+검증을 "생성 다음의 필수 단계 + 자동 수정 중심축 + 사람 승인 전 게이트"로 전환:
 
-## 7. 구현 순서
+| 컴포넌트 | 역할 |
+|---------|------|
+| `verify()` | 통합 검증 (컴파일러 + 9엔진 집계, 75점 게이트) |
+| `autoFix()` | 자동 수정 (필드 경로 기반 FixSuggestion 적용) |
+| `ChangeManager` | 5중 잠금 상태 머신 (DRAFT→VERIFIED→APPROVED→APPLIED→ROLLED_BACK) |
+| `verificationLoop()` | 재검증 루프 (RecomputeCallback → recompile roundtrip, 3회 제한) |
+| `enforce()` | EnforcementGate (ALLOW→FORCE_UNCERTAINTY→DOWNGRADE→BLOCK→SEAL) |
 
-### Phase 1: Extension 스캐폴딩 + 스키마 (Week 1-2)
-- VS Code Extension 프로젝트 생성 (yo code)
-- `.noa` JSON Schema + Zod 타입 정의
-- YAML 구문 하이라이팅 (tmLanguage)
-- 기본 명령 팔레트 등록
-- `base/secure.noa` 프리셋 1개
-
-### Phase 2: 컴파일러 코어 (Week 3-4)
-- parse → normalize → merge → resolve → validate 파이프라인
-- 필드별 병합 전략 구현
-- Provenance 추적 (explain)
-- Claude + GPT + Local 어댑터 3종
-- 단위 테스트
-
-### Phase 3: VS Code UI (Week 5-6)
-- Wardrobe TreeView (사이드바)
-- Layer Stack View (사이드바)
-- .noa 에디터 자동완성/검증 (Language Server)
-- Compile Preview Webview
-- 상태바 표시
-- 5개 프리셋 .noa 파일 (medical, legal, creative, education, research)
-
-### Phase 4: 엔진 이식 (Week 7-8)
-- HFCP v2.7 → `hfcp.ts` (점수 시스템)
-- EH v15.9 → `eh-detector.ts` (할루시네이션 탐지)
-- HCRF v1.2 → `hcrf.ts` (책임 게이트)
-- `.noa` engines 블록과 연동
-
-### Phase 5: 런타임 + Chat (Week 9-10)
-- 세션 관리 (wear/strip/swap 상태 머신)
-- Copilot Chat Participant 등록
-- `@noa` 명령어 처리
-- Explain View Webview
-
-### Phase 6: 나머지 엔진 + 마켓플레이스 (Week 11-12)
-- OCFP → `ocfp.ts`
-- TLMH → `tlmh.ts`
-- Sovereign → `sovereign.ts`
-- Accessory 시스템 (MCP/스킬 마운트)
-- VS Code Marketplace 배포 준비
+**5중 잠금:**
+1. 상태 잠금: snapshot draft 시점 1회 고정
+2. 전이 잠금: 허용된 전이만 가능
+3. 검증 잠금: passed + score>=75 + blockers===0 필수
+4. 적용 잠금: snapshot + approvedBy 존재 필수
+5. 복구 잠금: APPLIED + snapshotJson 존재 필수
 
 ---
 
-## 8. 검증 방법
+## 7. 구현 현황 (Phase 1~6 + 고도화 완료)
 
-1. `.noa` 파일 YAML 검증 → 스키마 에러 표시 확인
-2. 2개 레이어 병합 → `deny` monotonic union 확인
-3. `Compile & Preview` → Claude/GPT/Local 각각 올바른 포맷
-4. `Explain` → provenance에 "어느 레이어에서 왔는지" 표시
-5. Copilot Chat에서 `@noa wear medical` → 이후 응답에 의료 페르소나 적용
-6. 상태바에 현재 옷 + HFCP 점수 실시간 갱신
-7. `engines.eh.domain_weight: 1.4` 변경 → 할루시네이션 감도 변화 확인
+| Phase | 범위 | 상태 |
+|-------|------|------|
+| 1 | Extension 스캐폴딩 + 스키마 | ✅ |
+| 2 | 컴파일러 7단계 + 어댑터 4종 | ✅ |
+| 3 | VS Code UI 6종 + 프리셋 10개 | ✅ |
+| 4 | 엔진 이식 1차 (HFCP/EH/HCRF) | ✅ |
+| 5 | 런타임 + Chat (12개 @noa 명령) | ✅ |
+| 6 | 나머지 엔진 (OCFP/TLMH/NSG/NIB) + 배포 준비 | ✅ |
+| 고도화 | Band Optimizer 11파라미터 + 시나리오 48개 + Verification Studio | ✅ |
+| CI | GitHub Actions (typecheck→lint→test→build→smoke) | ✅ |
+
+**프로젝트 규모:** 39 소스 파일, 9,041줄, 테스트 8파일, 프리셋 10개
 
 ---
 
-## 9. MVP 범위
+## 8. @noa 명령어 (12개)
 
-MVP는 아래만으로 제품성 확보:
+| 명령 | 설명 |
+|------|------|
+| `wear <name>` | 페르소나 입기 (검증 게이트 + 자동 롤백) |
+| `strip <name>` | 페르소나 벗기 |
+| `swap <old> <new>` | 원자적 교체 |
+| `explain [field]` | 규칙 적용 이유 (Provenance) |
+| `process <text>` | 9엔진 분석 (엔진별 테이블 + Enforcement) |
+| `status` | 현재 상태 |
+| `list` | 활성 레이어 목록 |
+| `validate` | 프로필 검증 |
+| `verify` | 검증 루프 (자동 수정 + 재검증 + 에스컬레이션) |
+| `rollback` | 마지막 변경 실제 복원 |
+| `export [target]` | Claude/GPT/Local 내보내기 |
+| `ledger [n]` | 최근 감사 로그 |
 
-1. `.noa` 스키마 + 에디터 지원 (자동완성, 검증)
-2. 컴파일러 (parse → merge → resolve → validate)
-3. Claude + GPT 어댑터 2종
-4. Wardrobe 사이드바 (프리셋 선택)
-5. `wear` / `strip` / `compile` / `export` 명령
-6. 3개 프리셋 (medical, legal, creative)
+---
 
-MVP 이후: 엔진 이식, Copilot Chat 연동, Explain View, 마켓플레이스
+## 9. 감사 로그 추적 범위
+
+모든 성공/실패 경로에서 Ledger 기록 보장:
+
+| 이벤트 | 기록 시점 |
+|--------|----------|
+| SESSION_START | 세션 생성 |
+| WEAR / WEAR_ROLLED_BACK | wear 성공/검증 실패 롤백 |
+| STRIP / SWAP | 벗기/교체 |
+| ENGINES_INIT | 엔진 초기화 |
+| HCRF_TURN / NIB_EVENT / SOVEREIGN_VERDICT | 엔진별 턴 결과 |
+| ENFORCEMENT | 차단/다운그레이드 판정 (no-profile 포함) |
+| AUTO_FIX | 자동 수정 적용 |
+| RECOMPILE_AFTER_FIX | 수정 후 재컴파일 |
+| VERIFICATION_ESCALATED | 검증 루프 에스컬레이션 |
+| ROLLBACK / ROLLBACK_FAILED | 롤백 성공/실패 |
+| ADMIN_OVERRIDE / OCFP_PROCESS | 관리자 액션 / 조직 필터 |
