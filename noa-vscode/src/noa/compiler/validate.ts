@@ -2,6 +2,13 @@ import type { NoaDiagnostic } from "../schema/errors";
 import { validatePriorityRange } from "../schema/noa-schema";
 import type { ResolvedNoaProfile } from "./resolve";
 
+// --- 검증 임계값 ---
+const EH_DOMAIN_WEIGHT_WARNING = 1.5;
+const HFCP_SCORE_CAP_MIN = 50;
+const HFCP_SCORE_CAP_MAX = 150;
+const OCFP_RISK_LIMIT_MIN = 1;
+const OCFP_RISK_LIMIT_MAX = 10;
+
 /**
  * 4단계 검증: syntax → semantic → target → safety.
  * parse 단계에서 syntax(Zod)는 이미 통과했으므로 여기서는 semantic 이상 검증.
@@ -98,7 +105,7 @@ export function validate(
   // eh 활성 + domain_weight 높으면 정보
   if (resolved.activeEngines.includes("eh")) {
     const weight = profile.engines?.eh?.domain_weight ?? 1.0;
-    if (weight > 1.5) {
+    if (weight > EH_DOMAIN_WEIGHT_WARNING) {
       diagnostics.push({
         severity: "info",
         message: `EH domain_weight가 ${weight}로 높습니다. 할루시네이션 감지가 민감해집니다.`,
@@ -134,10 +141,10 @@ export function validate(
   // HFCP score_cap 범위
   if (profile.engines?.hfcp?.enabled) {
     const cap = profile.engines.hfcp.score_cap;
-    if (cap < 50 || cap > 150) {
+    if (cap < HFCP_SCORE_CAP_MIN || cap > HFCP_SCORE_CAP_MAX) {
       diagnostics.push({
         severity: "error",
-        message: `HFCP score_cap이 ${cap}입니다. 유효 범위: 50~150.`,
+        message: `HFCP score_cap이 ${cap}입니다. 유효 범위: ${HFCP_SCORE_CAP_MIN}~${HFCP_SCORE_CAP_MAX}.`,
         path: "engines.hfcp.score_cap",
       });
     }
@@ -146,10 +153,10 @@ export function validate(
   // OCFP risk_limit 범위
   if (profile.engines?.ocfp?.enabled) {
     const limit = profile.engines.ocfp.risk_limit;
-    if (limit < 1 || limit > 10) {
+    if (limit < OCFP_RISK_LIMIT_MIN || limit > OCFP_RISK_LIMIT_MAX) {
       diagnostics.push({
         severity: "warning",
-        message: `OCFP risk_limit이 ${limit}입니다. 권장 범위: 1~10.`,
+        message: `OCFP risk_limit이 ${limit}입니다. 권장 범위: ${OCFP_RISK_LIMIT_MIN}~${OCFP_RISK_LIMIT_MAX}.`,
         path: "engines.ocfp.risk_limit",
       });
     }

@@ -53,8 +53,8 @@ export class WardrobeTreeProvider
           uri,
           priority: priorityMatch ? parseInt(priorityMatch[1], 10) : 0,
         });
-      } catch {
-        // 파싱 실패 시 무시
+      } catch (e) {
+        console.debug(`NOA 파일 파싱 실패: ${uri.fsPath}`, e);
       }
     }
 

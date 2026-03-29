@@ -296,7 +296,7 @@ export class SessionManager {
         verdict,
         hfcpScore
       );
-      session.ledger.record("HCRF_TURN", auditEvent as unknown as Record<string, unknown>);
+      session.ledger.record("HCRF_TURN", auditEvent as Record<string, unknown>);
     }
 
     // 4. OCFP 실행
@@ -581,6 +581,7 @@ export class SessionManager {
   }
 
   private inferDomain(weight: number): Domain {
+    if (!Number.isFinite(weight) || weight < 0) return Domain.GENERAL;
     if (weight >= 1.35) return Domain.MEDICAL;
     if (weight >= 1.25) return Domain.FINANCE;
     if (weight >= 1.15) return Domain.LEGAL;

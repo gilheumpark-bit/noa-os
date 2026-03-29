@@ -6,7 +6,7 @@
 const CURRENT_VERSION = "1.0";
 
 export function migrateIfNeeded(raw: Record<string, unknown>): Record<string, unknown> {
-  const version = (raw.schemaVersion as string) ?? "1.0";
+  const version = typeof raw.schemaVersion === 'string' ? raw.schemaVersion : "1.0";
 
   if (version === CURRENT_VERSION) {
     return raw;

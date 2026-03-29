@@ -137,8 +137,8 @@
           "type": "object",
           "properties": {
             "enabled": { "type": "boolean" },
-            "seal_duration": { "type": "number" },
-            "risk_limit": { "type": "number" }
+            "seal_duration": { "type": "number", "minimum": 1, "maximum": 120, "description": "SEALED 상태 지속 시간 (분)" },
+            "risk_limit": { "type": "number", "minimum": 1, "maximum": 10, "description": "연속 리스크 횟수 → SEALED 전환 기준" }
           }
         },
         "tlmh": {

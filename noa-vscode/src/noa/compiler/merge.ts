@@ -71,19 +71,18 @@ function applyLayer(
 
   // persona: override (필드별)
   if (overlay.persona) {
+    if (!result.persona) result.persona = {};
     if (overlay.persona.role) {
       checkLock("persona.role", locks, origin);
-      result.persona = { ...result.persona, role: overlay.persona.role };
+      result.persona.role = overlay.persona.role;
       provenance.push({ field: "persona.role", value: overlay.persona.role, source: origin, strategy: "override" });
     }
     if (overlay.persona.tone) {
       checkLock("persona.tone", locks, origin);
-      if (!result.persona) result.persona = { role: "" };
       result.persona.tone = overlay.persona.tone;
       provenance.push({ field: "persona.tone", value: overlay.persona.tone, source: origin, strategy: "override" });
     }
     if (overlay.persona.audience) {
-      if (!result.persona) result.persona = { role: "" };
       result.persona.audience = overlay.persona.audience;
       provenance.push({ field: "persona.audience", value: overlay.persona.audience, source: origin, strategy: "override" });
     }
