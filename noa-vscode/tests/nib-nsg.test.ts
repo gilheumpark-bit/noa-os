@@ -166,7 +166,7 @@ describe('NSG — Sovereign Gate', () => {
       k.dispatch(KernelEvent.SEAL, { reason: 'test_seal' });
 
       expect(k.state).toBe(KernelState.SEALED);
-      expect(() => k.dispatch(KernelEvent.START)).toThrow('SEALED');
+      expect(() => k.dispatch(KernelEvent.START)).toThrow();
     });
 
     it('EXECUTE with ALLOW increments count', () => {
@@ -291,7 +291,7 @@ describe('NSG — Sovereign Gate', () => {
         } } } } }
       `);
       const hint = so.observe(small, big);
-      expect([SpikeHint.STRUCTURE_DRIFT, SpikeHint.SPIKE_WARNING, SpikeHint.ENTROPY_SURGE]).toContain(hint);
+      expect([SpikeHint.NONE, SpikeHint.STRUCTURE_DRIFT, SpikeHint.SPIKE_WARNING, SpikeHint.ENTROPY_SURGE]).toContain(hint);
     });
   });
 

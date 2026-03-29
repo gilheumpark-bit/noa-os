@@ -55,8 +55,13 @@ export class NoaRegistry {
    * kind별 목록.
    */
   listByKind(kind: string): RegistryEntry[] {
+    const seen = new Set<string>();
     return [...this.entries.values()]
-      .filter((e) => e.kind === kind && !e.id.includes("/"))
+      .filter((e) => {
+        if (e.kind !== kind || seen.has(e.id)) return false;
+        seen.add(e.id);
+        return true;
+      })
       .sort((a, b) => a.priority - b.priority);
   }
 

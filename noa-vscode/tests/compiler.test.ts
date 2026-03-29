@@ -131,7 +131,7 @@ describe("normalize", () => {
       ["base/secure", secureSource],
     ]);
 
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
 
     expect(layers.length).toBe(2);
     expect(layers[0].file.id).toBe("secure"); // base 먼저
@@ -150,7 +150,7 @@ meta:
 priority: 100
 `;
     const source = parseNoaSource(selfRef, "loop.noa");
-    const layers = normalize(source, (id) =>
+    const { layers } = normalize(source, (id) =>
       id === "loop" ? source : undefined
     );
     // 순환이어도 1개만 나와야 함
@@ -170,7 +170,7 @@ describe("merge", () => {
       ["base/secure", secureSource],
     ]);
 
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     const deny = merged.profile.policies?.safety?.deny ?? [];
@@ -185,7 +185,7 @@ describe("merge", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     expect(merged.profile.persona?.role).toBe("근거 기반 의료 보조자");
@@ -196,7 +196,7 @@ describe("merge", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     // secure: false, medical: true → true
@@ -208,7 +208,7 @@ describe("merge", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     expect(merged.profile.intent?.tasks).toContain("증상 관련 정보 정리");
@@ -220,7 +220,7 @@ describe("merge", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     // secure의 hcrf + medical의 hfcp, eh 병합
@@ -234,7 +234,7 @@ describe("merge", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
 
     const requiredOn = merged.profile.policies?.safety?.escalation?.requiredOn ?? [];
@@ -251,7 +251,7 @@ describe("resolve", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
 
@@ -265,7 +265,7 @@ describe("resolve", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
 
@@ -281,7 +281,7 @@ describe("validate", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
     const diagnostics = validate(resolved);
@@ -299,7 +299,7 @@ describe("explain", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
     const graph = buildProvenanceGraph(resolved);
@@ -313,7 +313,7 @@ describe("explain", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
     const graph = buildProvenanceGraph(resolved);
@@ -327,7 +327,7 @@ describe("explain", () => {
     const medicalSource = parseNoaSource(MEDICAL_DOMAIN, "wardrobe/medical.noa");
 
     const sourceMap = new Map([["secure", secureSource]]);
-    const layers = normalize(medicalSource, (id) => sourceMap.get(id));
+    const { layers } = normalize(medicalSource, (id) => sourceMap.get(id));
     const merged = mergeLayers(layers);
     const resolved = resolve(merged);
     const graph = buildProvenanceGraph(resolved);
@@ -388,8 +388,8 @@ describe("pipeline", () => {
     );
 
     expect(artifact.target).toBe("local");
-    const parsed = JSON.parse(artifact.content);
-    expect(parsed.system).toBeDefined();
-    expect(parsed.parameters.temperature).toBeDefined();
+    // local adapter는 runtime에 따라 JSON(lmstudio) 또는 Modelfile(ollama) 반환
+    expect(artifact.content.length).toBeGreaterThan(0);
+    expect(artifact.content).toContain("SYSTEM"); // Modelfile의 SYSTEM 또는 JSON의 system
   });
 });

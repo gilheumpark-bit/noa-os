@@ -649,8 +649,14 @@ export class SovereignGate {
     const verdict = this.policy.evaluate({ error: false, hint });
     this.ledger.append(AuditEventType.POLICY_VERDICT, { verdict, hint, score: this.policy.riskScore });
 
-    // 3. Kernel execution
+    // 3. Kernel execution — IDLE이면 자동 재시작 후 EXECUTE
     if (this.kernel.state !== KernelState.SEALED && this.kernel.state !== KernelState.TERMINATED) {
+      if (this.kernel.state === KernelState.IDLE) {
+        this.kernel.dispatch(KernelEvent.START);
+      }
+      if (this.kernel.state === KernelState.FAILED) {
+        this.kernel.dispatch(KernelEvent.RECOVER);
+      }
       this.kernel.dispatch(KernelEvent.EXECUTE, { verdict });
       this.ledger.append(AuditEventType.KERNEL_TRANSITION, { state: this.kernel.state });
     }

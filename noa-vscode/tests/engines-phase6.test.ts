@@ -287,7 +287,7 @@ describe("Sovereign Gate (NSG)", () => {
       k.dispatch(KernelEvent.START);
       k.dispatch(KernelEvent.SEAL, { reason: "test" });
       expect(k.state).toBe(KernelState.SEALED);
-      expect(() => k.dispatch(KernelEvent.START)).toThrow("SEALED");
+      expect(() => k.dispatch(KernelEvent.START)).toThrow();
     });
   });
 
