@@ -21,7 +21,8 @@
       "Bash(grep -n \"unresolvedParents\\\\|error handling\\\\|catch\" src/noa/compiler/*.ts)",
       "Bash(grep -n \"const.*=.*{}\" src/noa/compiler/*.ts src/noa/schema/*.ts)",
       "Bash(grep -n \"compatibility.local\\\\|\\\\.local\" src/noa/compiler/*.ts)",
-      "Bash(grep -n \"score_cap\\\\|risk_limit\" src/noa/compiler/*.ts)"
+      "Bash(grep -n \"score_cap\\\\|risk_limit\" src/noa/compiler/*.ts)",
+      "Bash(curl -sL \"https://export-download.canva.com/JJtvQ/DAHFUDJJtvQ/-1/0/0001-7081282939380665696.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAQYCGKMUH5AO7UJ26%2F20260328%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260328T234625Z&X-Amz-Expires=38126&X-Amz-Signature=d3267e09192f06037500e250905bd67dba95409cd759457f4ab62970ab4cd94d&X-Amz-SignedHeaders=host%3Bx-amz-expected-bucket-owner&response-expires=Sun%2C%2029%20Mar%202026%2010%3A21%3A51%20GMT\" -o \"C:/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/os/noa-vscode/media/noa-icon.png\")"
     ]
   }
 }

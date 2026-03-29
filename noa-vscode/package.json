@@ -29,6 +29,7 @@
     "color": "#1a1a2e",
     "theme": "dark"
   },
+  "icon": "media/noa-icon.png",
   "preview": true,
   "activationEvents": [
     "onLanguage:noa",
