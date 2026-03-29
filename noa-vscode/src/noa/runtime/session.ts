@@ -65,6 +65,15 @@ import {
   type ContextState,
 } from "../engines/ledger";
 import { AccessoryManager } from "./accessories";
+import {
+  enforce,
+  type EnforcementResult,
+  type VerificationResult,
+  verify as verifySession,
+  verificationLoop,
+  ChangeManager,
+  type LoopResult,
+} from "./verification-studio";
 
 // --- NIB → NSG PolicyHint 변환 맵 (static, 매 턴 재생성 방지) ---
 const NIB_TO_NSG_HINT: Record<string, PolicyHint> = {
@@ -259,6 +268,9 @@ export class SessionManager {
   /**
    * 턴 처리 — 사용자 입력에 대해 7개 엔진 실행.
    */
+  /** Verification-First Studio — 변경 관리 */
+  changeManager = new ChangeManager();
+
   processTurn(
     sessionId: string,
     text: string,
@@ -266,6 +278,7 @@ export class SessionManager {
   ): {
     session: SessionSnapshot;
     status: SessionStatus;
+    enforcement: EnforcementResult;
   } {
     const session = this.requireSession(sessionId);
     if (!session.resolved) {
@@ -417,7 +430,25 @@ export class SessionManager {
     session.contextState = appendMessage(session.contextState, frame);
 
     session.lastUpdated = Date.now();
-    return { session, status: this.getStatus(session) };
+    const status = this.getStatus(session);
+
+    // 10. Enforcement Gate — 엔진 판정을 실제 차단으로 연결
+    const enforcement = enforce(status);
+    session.ledger.record("ENFORCEMENT", {
+      action: enforcement.action,
+      reasons: enforcement.reasons,
+    });
+
+    return { session, status, enforcement };
+  }
+
+  /**
+   * 검증 루프 — wear/recompile 후 자동 검증 + 수정 + 재검증.
+   */
+  runVerification(sessionId: string): LoopResult {
+    const session = this.requireSession(sessionId);
+    const status = this.getStatus(session);
+    return verificationLoop(session, status);
   }
 
   getStatus(session: SessionSnapshot): SessionStatus {

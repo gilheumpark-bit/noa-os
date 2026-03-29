@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import type { SessionManager, SessionStatus } from "../noa/runtime/session";
 import { explainField } from "../noa/compiler/explain";
-import { compile } from "../noa/compiler/pipeline";
 import { exportArtifact } from "../noa/compiler/export";
 import type { CompatibilityTarget } from "../noa/schema/noa-schema";
+import { LoopOutcome, EnforcementAction } from "../noa/runtime/verification-studio";
 
 /**
  * Copilot Chat Participant — @noa 명령어 처리.
@@ -140,7 +140,7 @@ async function handleChatRequest(
         return;
       }
       try {
-        const { status } = sessionMgr.processTurn(DEFAULT_SESSION, text);
+        const { status, enforcement } = sessionMgr.processTurn(DEFAULT_SESSION, text);
         const rows = [
           `| 엔진 | 결과 | 상세 |`,
           `|------|------|------|`,
@@ -152,7 +152,10 @@ async function handleChatRequest(
           `| NSG | ${status.sovereignKernelState ?? "—"} | Risk: ${status.sovereignRiskLevel ?? "—"} |`,
           `| NIB | ${status.nibEvent ?? "—"} | Confidence: ${status.nibConfidence != null ? (status.nibConfidence * 100).toFixed(0) + "%" : "—"} |`,
         ];
-        stream.markdown(`**엔진 분석 결과**\n\n${rows.join("\n")}`);
+        const enfLine = enforcement.action !== EnforcementAction.ALLOW
+          ? `\n\n**Enforcement: ${enforcement.action}** — ${enforcement.reasons.join(", ")}`
+          : "";
+        stream.markdown(`**엔진 분석 결과**\n\n${rows.join("\n")}${enfLine}`);
       } catch (e) {
         stream.markdown(`오류: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -230,6 +233,57 @@ async function handleChatRequest(
       break;
     }
 
+    case "verify": {
+      try {
+        const loopResult = sessionMgr.runVerification(DEFAULT_SESSION);
+        const icon = loopResult.outcome === LoopOutcome.PASSED ? "pass" :
+                     loopResult.outcome === LoopOutcome.FIXED_AND_PASSED ? "warning" : "error";
+        const lines = [
+          `**검증 결과: ${loopResult.outcome}** (${loopResult.iterations}회 반복, ${loopResult.finalResult.score}점)`,
+          "",
+        ];
+        if (loopResult.appliedFixes.length > 0) {
+          lines.push(`**자동 수정 ${loopResult.appliedFixes.length}건:**`);
+          for (const f of loopResult.appliedFixes) {
+            lines.push(`- [${f.severity}] ${f.description}`);
+          }
+          lines.push("");
+        }
+        if (loopResult.humanRequired.length > 0) {
+          lines.push(`**수동 수정 필요 ${loopResult.humanRequired.length}건:**`);
+          for (const f of loopResult.humanRequired) {
+            lines.push(`- [${f.severity}] ${f.description} (${f.field})`);
+          }
+          lines.push("");
+        }
+        if (loopResult.finalResult.blockers.length > 0) {
+          lines.push(`**차단 사유:**`);
+          for (const b of loopResult.finalResult.blockers) {
+            lines.push(`- ${b}`);
+          }
+        }
+        stream.markdown(lines.join("\n"));
+      } catch (e) {
+        stream.markdown(`오류: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      break;
+    }
+
+    case "rollback": {
+      const mgr = sessionMgr.changeManager;
+      const latest = mgr.getLatestApplied();
+      if (!latest) {
+        stream.markdown("롤백할 변경이 없습니다.");
+        return;
+      }
+      mgr.markRolledBack(latest.id);
+      stream.markdown(
+        `**롤백 완료** — 변경 ${latest.id}를 롤백했습니다.\n\n` +
+        `이전 상태 스냅샷이 복원 준비됨. \`@noa wear\`로 다시 입혀주세요.`
+      );
+      break;
+    }
+
     default:
       stream.markdown(
         "**@noa 명령어 목록:**\n\n" +
@@ -243,6 +297,8 @@ async function handleChatRequest(
         "| `status` | 현재 상태 확인 |\n" +
         "| `list` | 등록된 레이어 목록 |\n" +
         "| `validate` | 현재 프로필 검증 |\n" +
+        "| `verify` | 검증 루프 실행 (자동 수정 + 재검증) |\n" +
+        "| `rollback` | 마지막 변경 롤백 |\n" +
         "| `export [target]` | Claude/GPT/Local 내보내기 |\n" +
         "| `ledger [n]` | 최근 감사 로그 (기본 5) |"
       );
