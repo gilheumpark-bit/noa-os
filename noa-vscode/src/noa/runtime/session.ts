@@ -13,6 +13,7 @@ import { exportAll, type ExportArtifact } from "../compiler/export";
 import type { NoaDiagnostic } from "../schema/errors";
 import {
   createInitialState as createHfcpState,
+  createInitialEcology,
   updateScore,
   determineVerdict,
   NrgMemory,
@@ -500,10 +501,10 @@ export class SessionManager {
     }
 
     const resolver = (id: string) => this.sourceRegistry.get(id);
-    const normalized = normalizeAll(sources, resolver);
+    const { layers: normalized, unresolvedParents } = normalizeAll(sources, resolver);
     const merged = mergeLayers(normalized);
     const resolved = resolve(merged);
-    const diagnostics = validate(resolved);
+    const diagnostics = validate(resolved, unresolvedParents);
     const provenance = buildProvenanceGraph(resolved);
 
     session.resolved = resolved;
@@ -532,9 +533,7 @@ export class SessionManager {
       const mode: HfcpMode = (config?.hfcp?.mode as HfcpMode) ?? "CHAT";
       session.engineStates.hfcp = createHfcpState(mode);
       session.engineStates.nrgMemory = new NrgMemory();
-      session.engineStates.memoryEcology = {
-        mii: 0, mds: 0.5, lastEpoch: Date.now(), freshnessDecay: 1.0,
-      };
+      session.engineStates.memoryEcology = createInitialEcology();
     } else {
       session.engineStates.hfcp = null;
       session.engineStates.nrgMemory = null;

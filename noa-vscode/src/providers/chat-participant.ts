@@ -19,6 +19,7 @@ export function registerChatParticipant(
   sessionMgr = manager;
 
   if (!vscode.chat?.createChatParticipant) {
+    console.warn("NOA: VS Code Chat Participant API 미지원 — @noa 명령 비활성");
     return;
   }
 

@@ -40,7 +40,7 @@ export function compile(
   const resolver = (id: string) => sourceMap.get(id);
 
   // 2. Normalize (extends 해소 + priority 정렬)
-  const normalized = normalizeAll(parsed, resolver);
+  const { layers: normalized, unresolvedParents } = normalizeAll(parsed, resolver);
 
   // 3. Merge (필드별 전략 적용)
   const merged: MergedResult = mergeLayers(normalized);
@@ -48,8 +48,8 @@ export function compile(
   // 4. Resolve (최종 프로필 계산)
   const resolved = resolve(merged);
 
-  // 5. Validate (semantic/target/safety 검증)
-  const diagnostics = validate(resolved);
+  // 5. Validate (semantic/target/safety 검증 + 미해소 부모 경고)
+  const diagnostics = validate(resolved, unresolvedParents);
 
   // 6. Provenance graph
   const provenance = buildProvenanceGraph(resolved);

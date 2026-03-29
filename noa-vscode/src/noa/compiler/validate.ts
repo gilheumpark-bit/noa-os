@@ -6,7 +6,10 @@ import type { ResolvedNoaProfile } from "./resolve";
  * 4단계 검증: syntax → semantic → target → safety.
  * parse 단계에서 syntax(Zod)는 이미 통과했으므로 여기서는 semantic 이상 검증.
  */
-export function validate(resolved: ResolvedNoaProfile): NoaDiagnostic[] {
+export function validate(
+  resolved: ResolvedNoaProfile,
+  unresolvedParents?: string[]
+): NoaDiagnostic[] {
   const diagnostics: NoaDiagnostic[] = [];
   const { profile } = resolved;
 
@@ -32,8 +35,15 @@ export function validate(resolved: ResolvedNoaProfile): NoaDiagnostic[] {
   }
 
   // extends에 명시된 부모가 실제로 해소되었는지
-  // (normalize 단계에서 못 찾은 부모는 여기서 경고)
-  // → 이 검증은 compile pipeline에서 unresolvedParents를 전달받아 처리
+  if (unresolvedParents && unresolvedParents.length > 0) {
+    for (const parentId of unresolvedParents) {
+      diagnostics.push({
+        severity: "warning",
+        message: `extends "${parentId}"를 찾을 수 없습니다. 누락된 부모 레이어입니다.`,
+        path: "extends",
+      });
+    }
+  }
 
   // --- Target 검증 ---
 

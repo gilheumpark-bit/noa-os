@@ -190,11 +190,18 @@ function applyLayer(
     provenance.push({ field: "accessories.suggested", value: merged, source: origin, strategy: "dedupe_append" });
   }
 
-  // compatibility.targets: override
-  if (overlay.compatibility?.targets) {
-    if (!result.compatibility) result.compatibility = { targets: [] };
-    result.compatibility.targets = [...overlay.compatibility.targets];
-    provenance.push({ field: "compatibility.targets", value: result.compatibility.targets, source: origin, strategy: "override" });
+  // compatibility: targets + local override
+  if (overlay.compatibility) {
+    if (overlay.compatibility.targets) {
+      if (!result.compatibility) result.compatibility = { targets: [] };
+      result.compatibility.targets = [...overlay.compatibility.targets];
+      provenance.push({ field: "compatibility.targets", value: result.compatibility.targets, source: origin, strategy: "override" });
+    }
+    if (overlay.compatibility.local) {
+      if (!result.compatibility) result.compatibility = { targets: [] };
+      result.compatibility.local = { ...result.compatibility.local, ...overlay.compatibility.local };
+      provenance.push({ field: "compatibility.local", value: result.compatibility.local, source: origin, strategy: "deep_merge" });
+    }
   }
 
   return result;

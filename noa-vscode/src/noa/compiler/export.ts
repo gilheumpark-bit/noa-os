@@ -23,7 +23,7 @@ type AdapterFn = (resolved: ResolvedNoaProfile, ...args: unknown[]) => string;
 const ADAPTERS: Record<string, AdapterFn> = {
   claude: exportForClaude,
   gpt: exportForGpt,
-  local: exportForLocal as AdapterFn,
+  local: exportForLocal,
   copilot: exportForCopilot,
 };
 

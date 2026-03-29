@@ -1,5 +1,5 @@
 schemaVersion: "1.0"
-id: "user-default"
+id: "default"
 kind: "user"
 
 extends:

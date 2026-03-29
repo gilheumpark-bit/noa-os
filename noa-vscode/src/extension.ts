@@ -98,7 +98,8 @@ function registerWearWithSession(
 
     try {
       sessionMgr.wear(DEFAULT_SESSION, picked.id);
-      const session = sessionMgr.getSession(DEFAULT_SESSION)!;
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!session) return;
       const status = sessionMgr.getStatus(session);
 
       // Layer View 갱신
@@ -152,8 +153,8 @@ function registerStripWithSession(
     sessionMgr.strip(DEFAULT_SESSION, picked.id);
     layerProvider.removeLayer(picked.id);
 
-    const updated = sessionMgr.getSession(DEFAULT_SESSION)!;
-    updateStatusBar(statusBar, sessionMgr.getStatus(updated));
+    const updated = sessionMgr.getSession(DEFAULT_SESSION);
+    if (updated) updateStatusBar(statusBar, sessionMgr.getStatus(updated));
     vscode.window.showInformationMessage(`🚫 "${picked.label}" 벗었습니다.`);
   });
 }
@@ -197,7 +198,8 @@ function registerSwapWithSession(
 
     try {
       sessionMgr.swap(DEFAULT_SESSION, oldPick.id, newPick.id);
-      const updated = sessionMgr.getSession(DEFAULT_SESSION)!;
+      const updated = sessionMgr.getSession(DEFAULT_SESSION);
+      if (!updated) return;
 
       layerProvider.clearStack();
       for (const layer of updated.activeLayers) {
@@ -276,8 +278,8 @@ async function loadPresetsIntoRegistry(
       const entry = registry.register(text, uri.fsPath);
       // 세션 매니저에도 소스 등록
       sessionMgr.registerSource(entry.id, text, uri.fsPath);
-    } catch {
-      // 파싱 실패한 파일은 건너뜀
+    } catch (e) {
+      console.warn(`NOA 프리셋 파싱 실패: ${uri.fsPath}`, e);
     }
   }
 }

@@ -33,7 +33,7 @@ export function resolve(merged: MergedResult): ResolvedNoaProfile {
   const activeEngines: string[] = [];
   if (profile.engines) {
     for (const [name, config] of Object.entries(profile.engines)) {
-      if (config && (config as Record<string, unknown>).enabled === true) {
+      if (config && typeof config === 'object' && 'enabled' in config && (config as { enabled?: unknown }).enabled === true) {
         activeEngines.push(name);
       }
     }

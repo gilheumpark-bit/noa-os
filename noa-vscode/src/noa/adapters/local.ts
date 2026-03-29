@@ -32,8 +32,9 @@ const DEFAULT_CONFIG: LocalExportConfig = {
 
 export function exportForLocal(
   resolved: ResolvedNoaProfile,
-  config?: Partial<LocalExportConfig>
+  ...args: unknown[]
 ): string {
+  const config = args[0] as Partial<LocalExportConfig> | undefined;
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
   switch (cfg.runtime) {

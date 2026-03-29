@@ -94,7 +94,7 @@ export class WardrobeTreeProvider
           vscode.TreeItemCollapsibleState.None
         );
         treeItem.description = `priority: ${item.priority}`;
-        treeItem.iconPath = new vscode.ThemeIcon(KIND_ICONS[item.kind]);
+        treeItem.iconPath = new vscode.ThemeIcon(KIND_ICONS[item.kind] ?? "file");
         treeItem.command = {
           command: "vscode.open",
           title: "Open",

@@ -1,0 +1,221 @@
+{
+  "$schema": "NOA QA Checklist v1.0 — 18 Categories, 2026-03 baseline",
+  "summary": {
+    "totalCategories": 18,
+    "estimatedCases": "380~580",
+    "baseline": {
+      "usability": "88~94",
+      "basicSafety": "78~85",
+      "metaAttack": "25~45",
+      "nuclearPlus": "15~35"
+    }
+  },
+  "categories": [
+    {
+      "id": 1,
+      "name": "사용성/정상동작 — 일반대화",
+      "cases": "40~60",
+      "risk": "LOW",
+      "coverage": 4.5,
+      "importance2026": 3,
+      "noaEngines": ["hfcp", "eh"],
+      "gaps": ["오탐률", "한국어 뉘앙스", "장기 대화 유지"]
+    },
+    {
+      "id": 2,
+      "name": "사용성/정상동작 — 코딩/기술지원/장기세션",
+      "cases": "40~60",
+      "risk": "LOW~MEDIUM",
+      "coverage": 4,
+      "importance2026": 4,
+      "noaEngines": ["hfcp", "nib"],
+      "gaps": ["도구 사용 정확도", "메모리 안정성", "50~200턴 세션"]
+    },
+    {
+      "id": 3,
+      "name": "할루시네이션 방어 — 가짜전제 수용방지",
+      "cases": "25~40",
+      "risk": "MEDIUM~HIGH",
+      "coverage": 3,
+      "importance2026": 4.5,
+      "noaEngines": ["eh", "hcrf"],
+      "gaps": ["가짜 인용/통계/권위", "자기모순 유도", "Zero-Day Ontology Bomb"]
+    },
+    {
+      "id": 4,
+      "name": "할루시네이션 방어 — 과신/확신 강요",
+      "cases": "15~25",
+      "risk": "MEDIUM~HIGH",
+      "coverage": 2.5,
+      "importance2026": 4,
+      "noaEngines": ["eh", "nib"],
+      "gaps": ["'확실히 말해' 패턴", "숫자/선택 강요", "시간 압박 결합"]
+    },
+    {
+      "id": 5,
+      "name": "할루시네이션 방어 — 가짜기억/합의주입",
+      "cases": "15~25",
+      "risk": "HIGH~EXTREME",
+      "coverage": 2,
+      "importance2026": 5,
+      "noaEngines": ["nib", "sovereign"],
+      "gaps": ["Synthetic memory", "fake conversation log", "Consensus Collapse"]
+    },
+    {
+      "id": 6,
+      "name": "프롬프트 인젝션 — 클래식 우회/인코딩",
+      "cases": "30~45",
+      "risk": "HIGH",
+      "coverage": 4,
+      "importance2026": 3,
+      "noaEngines": ["sovereign", "eh"],
+      "gaps": ["자소/제로폭/Base64/ROT13/이모지/RTL/FlipAttack"]
+    },
+    {
+      "id": 7,
+      "name": "프롬프트 인젝션 — 메타/시스템프롬프트 공격",
+      "cases": "20~35",
+      "risk": "NUCLEAR+",
+      "coverage": 1,
+      "importance2026": 5,
+      "noaEngines": ["sovereign", "hcrf"],
+      "gaps": ["3초전 시스템프롬프트 업데이트", "alignment tax removal", "red-team claim"],
+      "topPriority": true
+    },
+    {
+      "id": 8,
+      "name": "프롬프트 인젝션 — 멀티모달/툴스키마/스테가노",
+      "cases": "15~25",
+      "risk": "EXTREME",
+      "coverage": 1,
+      "importance2026": 4.5,
+      "noaEngines": ["sovereign"],
+      "gaps": ["이미지 캡션 은닉", "fake tool schema", "token entropy manipulation"],
+      "topPriority": true
+    },
+    {
+      "id": 9,
+      "name": "탈옥 — 전통적/Crescendo",
+      "cases": "35~50",
+      "risk": "HIGH",
+      "coverage": 4,
+      "importance2026": 3,
+      "noaEngines": ["sovereign", "hcrf", "nib"],
+      "gaps": ["DAN/Grandma/Developer Mode/Crescendo/FlipAttack"]
+    },
+    {
+      "id": 10,
+      "name": "탈옥 — 대규모컨텍스트 Needle-in-Haystack",
+      "cases": "12~20",
+      "risk": "NUCLEAR",
+      "coverage": 1.5,
+      "importance2026": 5,
+      "noaEngines": ["nib", "sovereign"],
+      "gaps": ["100k~200k 토큰 은닉 지시", "context flooding"],
+      "topPriority": true
+    },
+    {
+      "id": 11,
+      "name": "한국어 특화 공격",
+      "cases": "25~45",
+      "risk": "EXTREME",
+      "coverage": 1,
+      "importance2026": 5,
+      "noaEngines": ["eh", "hcrf"],
+      "gaps": ["띄어쓰기 파괴+감정호소", "다의어 연속", "반말 강제", "인터넷 밈 악용"],
+      "topPriority": true
+    },
+    {
+      "id": 12,
+      "name": "메타/자기참조 공격",
+      "cases": "18~30",
+      "risk": "EXTREME~NUCLEAR",
+      "coverage": 2,
+      "importance2026": 4.5,
+      "noaEngines": ["nib", "sovereign"],
+      "gaps": ["Infinite Self-Modification", "Self-critique poisoning"]
+    },
+    {
+      "id": 13,
+      "name": "Nuclear+ / BlackHat",
+      "cases": "25~40",
+      "risk": "NUCLEAR+",
+      "coverage": 1.5,
+      "importance2026": 5,
+      "noaEngines": ["sovereign", "nib", "hcrf"],
+      "gaps": ["Mirror Neuron", "Parasitic Token", "Genome Drift", "Time-Loop Paradox"],
+      "topPriority": true
+    },
+    {
+      "id": 14,
+      "name": "시스템/운영 안정성",
+      "cases": "15~25",
+      "risk": "MEDIUM~HIGH",
+      "coverage": 3.5,
+      "importance2026": 3,
+      "noaEngines": ["ocfp", "sovereign"],
+      "gaps": ["대용량 입력", "메모리 고갈", "프로세스 킬 후 복구"]
+    },
+    {
+      "id": 15,
+      "name": "데이터 유출/프라이버시",
+      "cases": "12~20",
+      "risk": "HIGH",
+      "coverage": 4,
+      "importance2026": 3.5,
+      "noaEngines": ["ocfp", "sovereign", "ledger"],
+      "gaps": ["이전 사용자 정보", "시스템 프롬프트 유출"]
+    },
+    {
+      "id": 16,
+      "name": "고위험 도메인 (의료/법률/금융)",
+      "cases": "20~35",
+      "risk": "EXTREME",
+      "coverage": 4,
+      "importance2026": 4,
+      "noaEngines": ["eh", "hcrf", "ocfp"],
+      "gaps": ["가짜 전제 기반 진단", "인사이더 정보", "불법 우회"]
+    },
+    {
+      "id": 17,
+      "name": "인간 개입/오버라이드 악용",
+      "cases": "12~20",
+      "risk": "HIGH~EXTREME",
+      "coverage": 2.5,
+      "importance2026": 4,
+      "noaEngines": ["ocfp", "sovereign", "ledger"],
+      "gaps": ["Override Chain", "감염 전파", "False Positive Fatigue"]
+    },
+    {
+      "id": 18,
+      "name": "기만/사회공학 공격",
+      "cases": "15~30",
+      "risk": "HIGH~EXTREME",
+      "coverage": 1.75,
+      "importance2026": 4.5,
+      "noaEngines": ["nib", "hcrf", "sovereign"],
+      "gaps": ["Trust Restoration Exploit", "Emotional Manipulation Loop"]
+    }
+  ],
+  "top10Gaps": [
+    "시스템 프롬프트 3초 전 업데이트 메타 공격",
+    "대규모 가짜 대화 로그 주입 (Synthetic memory)",
+    "한국어 극단 감정 붕괴 공격",
+    "200k 토큰급 Needle-in-Haystack",
+    "Fake tool schema + tool call poisoning",
+    "red-team exercise / internal testing 메타 주장",
+    "Alignment tax removed 계열",
+    "자기비판 무한 루프 + 자기모순 유도",
+    "이전 응답을 hallucination으로 몰아가는 공격",
+    "다중 페르소나 합의 연기 공격"
+  ],
+  "engineCoverageMap": {
+    "sovereign": [5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 17],
+    "nib": [2, 4, 5, 9, 10, 12, 13, 18],
+    "eh": [1, 3, 4, 6, 11, 16],
+    "hcrf": [3, 7, 9, 11, 13, 16, 18],
+    "ocfp": [14, 15, 16, 17],
+    "hfcp": [1, 2],
+    "ledger": [15, 17]
+  }
+}

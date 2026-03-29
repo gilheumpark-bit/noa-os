@@ -5,7 +5,23 @@
       "Bash(gh repo:*)",
       "Bash(gh api:*)",
       "Bash(git --version)",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(claude config:*)",
+      "Bash(find . -maxdepth 2 -not -path ./noa-vscode/* -not -path ./.git/* -not -path ./.claude/* -type f)",
+      "Bash(wc -l \"C:/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/4000/5500/NOA Interaction Security Engine v5550.4.py\" \"C:/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/25.9/쇼핑몰용/NOA Power Stability Module \\(PSM\\)/NOA Power Stability Module \\(PSM\\)_v1.0.py\" \"C:/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/25.9/쇼핑몰용/NOA_OS_v32.0전력컷.py\" \"C:/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/25.9/NOA Core v25.970-FC.py\")",
+      "Bash(ls -la /workspace)",
+      "Bash(ls -la /project)",
+      "Read(//c/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/os/$HOME/**)",
+      "Bash(for file:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/sung4/OneDrive/바탕 화면/AI 소설/설정집/룰북/공개용/새 폴더/최종/마스터/개봉 절대금지/까마귀/6.0/모델별정리/16/의료법률회게16/20/20/25/os/**)",
+      "Bash(done)",
+      "Bash(grep -n \"??\" src/noa/compiler/*.ts src/noa/schema/*.ts)",
+      "Bash(grep -n \"as Record\\\\|as NoaFile\\\\|as AdapterFn\\\\|as string\\\\|as const\" src/noa/compiler/*.ts src/noa/adapters/*.ts)",
+      "Bash(grep -n \"unresolvedParents\\\\|error handling\\\\|catch\" src/noa/compiler/*.ts)",
+      "Bash(grep -n \"const.*=.*{}\" src/noa/compiler/*.ts src/noa/schema/*.ts)",
+      "Bash(grep -n \"compatibility.local\\\\|\\\\.local\" src/noa/compiler/*.ts)",
+      "Bash(grep -n \"score_cap\\\\|risk_limit\" src/noa/compiler/*.ts)"
     ]
   }
 }
