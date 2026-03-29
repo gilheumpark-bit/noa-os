@@ -264,15 +264,30 @@ export interface StagedChange {
 
 let changeCounter = 0;
 
+/**
+ * ChangeManager — 5중 잠금 상태 머신.
+ *
+ * 잠금 규칙:
+ * 1. 상태 잠금: snapshot은 draft 시점에 1회 고정, 이후 불변
+ * 2. 전이 잠금: 허용된 전이만 가능 (DRAFT→VERIFIED→APPROVED→APPLIED→ROLLED_BACK)
+ * 3. 검증 잠금: VERIFIED로 가려면 verification.passed === true + score >= 75
+ * 4. 적용 잠금: APPLIED로 가려면 snapshotJson 존재 + APPROVED 상태 + blockers === 0
+ * 5. 복구 잠금: ROLLED_BACK은 APPLIED 상태에서만, snapshot 데이터 필수
+ */
 export class ChangeManager {
   private history: StagedChange[] = [];
   private maxHistory = 20;
 
   draft(session: SessionSnapshot): StagedChange {
+    const snapshotJson = this.serializeSnapshot(session);
+    if (!snapshotJson) {
+      throw new Error("잠금 위반: snapshot 직렬화 실패 — draft 불가");
+    }
+
     const change: StagedChange = {
       id: `change-${++changeCounter}`,
       stage: ChangeStage.DRAFT,
-      snapshotJson: this.serializeSnapshot(session),
+      snapshotJson,
       verification: null,
       fixResult: null,
       approvedBy: null,
@@ -284,28 +299,55 @@ export class ChangeManager {
     return change;
   }
 
+  /**
+   * 전이 잠금: DRAFT → VERIFIED (검증 통과 시) 또는 DRAFT 유지 (실패 시).
+   * 검증 잠금: passed === true + score >= 75 필수.
+   */
   markVerified(changeId: string, result: VerificationResult): StagedChange | null {
     const change = this.find(changeId);
     if (!change || change.stage !== ChangeStage.DRAFT) return null;
+
     change.verification = result;
-    change.stage = result.passed ? ChangeStage.VERIFIED : ChangeStage.DRAFT;
+
+    // 검증 잠금: 75점 미만이면 VERIFIED 불가
+    if (result.passed && result.score >= PASS_THRESHOLD && result.blockers.length === 0) {
+      change.stage = ChangeStage.VERIFIED;
+    }
+    // 실패 시 DRAFT 유지 (stage 변경 안 함)
     return change;
   }
 
+  /**
+   * 전이 잠금: VERIFIED → APPROVED.
+   * 적용 잠금 전제: verification 존재 + blockers 없음 + score >= 75.
+   */
   approve(changeId: string, approver: string): StagedChange | null {
     const change = this.find(changeId);
     if (!change || change.stage !== ChangeStage.VERIFIED) return null;
 
-    if (change.verification?.blockers.length) return null;
+    // 적용 잠금: 검증 결과 재확인
+    if (!change.verification) return null;
+    if (change.verification.blockers.length > 0) return null;
+    if (change.verification.score < PASS_THRESHOLD) return null;
 
     change.approvedBy = approver;
     change.stage = ChangeStage.APPROVED;
     return change;
   }
 
+  /**
+   * 적용 잠금: APPROVED → APPLIED.
+   * snapshot 존재 필수 + 검증 통과 필수 + approvedBy 필수.
+   */
   markApplied(changeId: string): StagedChange | null {
     const change = this.find(changeId);
     if (!change || change.stage !== ChangeStage.APPROVED) return null;
+
+    // 적용 잠금: snapshot 없으면 적용 불가
+    if (!change.snapshotJson) return null;
+    // 적용 잠금: approvedBy 없으면 적용 불가
+    if (!change.approvedBy) return null;
+
     change.appliedAt = Date.now();
     change.stage = ChangeStage.APPLIED;
     return change;
@@ -315,9 +357,16 @@ export class ChangeManager {
     return this.find(changeId)?.snapshotJson ?? null;
   }
 
+  /**
+   * 복구 잠금: APPLIED → ROLLED_BACK.
+   * snapshot 데이터 존재 필수.
+   */
   markRolledBack(changeId: string): StagedChange | null {
     const change = this.find(changeId);
     if (!change || change.stage !== ChangeStage.APPLIED) return null;
+    // 복구 잠금: snapshot 없으면 rollback 불가
+    if (!change.snapshotJson) return null;
+
     change.stage = ChangeStage.ROLLED_BACK;
     return change;
   }

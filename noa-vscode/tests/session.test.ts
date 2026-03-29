@@ -191,4 +191,25 @@ compatibility:
     const after = mgr.getSession("test")!.activeLayers.length;
     expect(after).toBe(before);
   });
+
+  it("wear는 verification 결과를 반환한다", () => {
+    const { verification, rolledBack } = mgr.wear("test", "medical");
+    expect(rolledBack).toBe(false);
+    expect(verification).not.toBeNull();
+    expect(verification!.passed).toBe(true);
+  });
+
+  it("wear 검증 게이트 — 정상 프로필은 롤백 안 됨", () => {
+    const { session, rolledBack } = mgr.wear("test", "medical");
+    expect(rolledBack).toBe(false);
+    expect(session.activeLayers.length).toBeGreaterThan(0);
+  });
+
+  it("rollback — 적용된 변경 복구", () => {
+    mgr.wear("test", "medical");
+    // rollback 대상이 없으면 false
+    const result = mgr.rollback("test");
+    // ChangeManager에 APPLIED 상태가 없으므로 false
+    expect(result).toBe(false);
+  });
 });

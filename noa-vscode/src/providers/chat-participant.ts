@@ -61,7 +61,12 @@ async function handleChatRequest(
         return;
       }
       try {
-        sessionMgr.wear(DEFAULT_SESSION, name);
+        const { verification, rolledBack } = sessionMgr.wear(DEFAULT_SESSION, name);
+        if (rolledBack) {
+          const blockers = verification?.blockers.join("\n- ") ?? "검증 실패";
+          stream.markdown(`**검증 실패로 롤백됨**\n\n- ${blockers}`);
+          return;
+        }
         const status = formatStatus(sessionMgr);
         stream.markdown(`👔 **${name}** 페르소나를 입었습니다.\n\n${status}`);
       } catch (e) {

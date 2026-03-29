@@ -111,9 +111,14 @@ function registerWearWithSession(
     if (!picked) return;
 
     try {
-      sessionMgr.wear(DEFAULT_SESSION, picked.id);
-      const session = sessionMgr.getSession(DEFAULT_SESSION);
-      if (!session) return;
+      const { session, verification, rolledBack } = sessionMgr.wear(DEFAULT_SESSION, picked.id);
+      if (rolledBack) {
+        const blockers = verification?.blockers.join("\n") ?? "검증 실패";
+        vscode.window.showWarningMessage(
+          `검증 실패로 롤백됨: ${blockers}`
+        );
+        return;
+      }
       const status = sessionMgr.getStatus(session);
 
       // Layer View 갱신

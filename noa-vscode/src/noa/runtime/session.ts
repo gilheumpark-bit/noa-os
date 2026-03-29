@@ -218,7 +218,11 @@ export class SessionManager {
     return this.sessions.get(sessionId);
   }
 
-  wear(sessionId: string, sourceId: string): SessionSnapshot {
+  wear(sessionId: string, sourceId: string): {
+    session: SessionSnapshot;
+    verification: VerificationResult | null;
+    rolledBack: boolean;
+  } {
     const session = this.requireSession(sessionId);
     const source = this.sourceRegistry.get(sourceId);
     if (!source) {
@@ -226,13 +230,36 @@ export class SessionManager {
     }
 
     if (session.activeLayers.some((l) => l.source.file.id === source.file.id)) {
-      return session;
+      return { session, verification: null, rolledBack: false };
     }
 
+    // 변경 전 스냅샷 저장 (롤백 대비)
+    const change = this.changeManager.draft(session);
+    const prevLayers = [...session.activeLayers];
+
+    // 적용
     session.activeLayers.push({ source, active: true });
     this.recompile(session);
+
+    // 검증 게이트 — 컴파일 후 diagnostics 에러가 있으면 자동 롤백
+    const status = this.getStatus(session);
+    const verification = verifySession(session, status);
+
+    if (!verification.passed && verification.blockers.length > 0) {
+      // 롤백: 이전 레이어 상태로 복원
+      session.activeLayers = prevLayers;
+      this.recompile(session);
+      session.ledger.record("WEAR_ROLLED_BACK", {
+        sourceId: source.file.id,
+        reason: verification.blockers,
+      });
+      this.changeManager.markVerified(change.id, verification);
+      return { session, verification, rolledBack: true };
+    }
+
     session.ledger.record("WEAR", { sourceId: source.file.id });
-    return session;
+    this.changeManager.markVerified(change.id, verification);
+    return { session, verification, rolledBack: false };
   }
 
   strip(sessionId: string, sourceId: string): SessionSnapshot {
