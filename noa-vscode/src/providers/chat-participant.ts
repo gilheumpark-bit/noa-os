@@ -4,6 +4,10 @@ import { explainField } from "../noa/compiler/explain";
 import { exportArtifact } from "../noa/compiler/export";
 import type { CompatibilityTarget } from "../noa/schema/noa-schema";
 import { LoopOutcome, EnforcementAction } from "../noa/runtime/verification-studio";
+import { executeWithEnforcement } from "../injection/enforcement-bridge";
+import { CopilotInstructionsWriter } from "../injection/copilot-instructions-writer";
+
+const instructionsWriter = new CopilotInstructionsWriter();
 
 /**
  * Copilot Chat Participant — @noa 명령어 처리.
@@ -69,6 +73,9 @@ async function handleChatRequest(
         }
         const status = formatStatus(sessionMgr);
         stream.markdown(`👔 **${name}** 페르소나를 입었습니다.\n\n${status}`);
+        // 경로 A: Copilot Instructions 동기화
+        const s = sessionMgr.getSession(DEFAULT_SESSION);
+        if (s) instructionsWriter.sync(s).catch(() => {});
       } catch (e) {
         stream.markdown(`오류: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -287,24 +294,34 @@ async function handleChatRequest(
       break;
     }
 
-    default:
-      stream.markdown(
-        "**@noa 명령어 목록:**\n\n" +
-        "| 명령 | 설명 |\n" +
-        "|------|------|\n" +
-        "| `wear <name>` | 페르소나 입기 |\n" +
-        "| `strip <name>` | 페르소나 벗기 |\n" +
-        "| `swap <old> <new>` | 페르소나 교체 |\n" +
-        "| `explain [field]` | 규칙 적용 이유 |\n" +
-        "| `process <text>` | 텍스트 엔진 분석 (전 엔진 테이블) |\n" +
-        "| `status` | 현재 상태 확인 |\n" +
-        "| `list` | 등록된 레이어 목록 |\n" +
-        "| `validate` | 현재 프로필 검증 |\n" +
-        "| `verify` | 검증 루프 실행 (자동 수정 + 재검증) |\n" +
-        "| `rollback` | 마지막 변경 롤백 |\n" +
-        "| `export [target]` | Claude/GPT/Local 내보내기 |\n" +
-        "| `ledger [n]` | 최근 감사 로그 (기본 5) |"
-      );
+    default: {
+      // 명령이 아닌 일반 텍스트 → 프로필 활성 시 enforced chat, 아니면 도움말
+      const session = sessionMgr.getSession(DEFAULT_SESSION);
+      if (session?.resolved && prompt.length > 0) {
+        // 경로 B: Enforcement Bridge를 통한 AI 호출
+        await executeWithEnforcement(sessionMgr, prompt, request, stream, _token);
+      } else {
+        stream.markdown(
+          "**@noa 명령어 목록:**\n\n" +
+          "| 명령 | 설명 |\n" +
+          "|------|------|\n" +
+          "| `wear <name>` | 페르소나 입기 |\n" +
+          "| `strip <name>` | 페르소나 벗기 |\n" +
+          "| `swap <old> <new>` | 페르소나 교체 |\n" +
+          "| `explain [field]` | 규칙 적용 이유 |\n" +
+          "| `process <text>` | 텍스트 엔진 분석 |\n" +
+          "| `status` | 현재 상태 확인 |\n" +
+          "| `list` | 등록된 레이어 목록 |\n" +
+          "| `validate` | 현재 프로필 검증 |\n" +
+          "| `verify` | 검증 루프 (자동 수정 + 재검증) |\n" +
+          "| `rollback` | 마지막 변경 롤백 |\n" +
+          "| `export [target]` | Claude/GPT/Local 내보내기 |\n" +
+          "| `ledger [n]` | 최근 감사 로그 |\n\n" +
+          "*프로필 활성 시 명령 없이 질문하면 enforcement 파이프라인을 통해 AI에 전달됩니다.*"
+        );
+      }
+      break;
+    }
   }
 }
 

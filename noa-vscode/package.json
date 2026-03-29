@@ -140,6 +140,33 @@
     "lint": "eslint src --ext ts",
     "test": "vitest run"
   },
+  "contributes_configuration": {
+    "title": "NOA Clothing Framework",
+    "properties": {
+      "noa.autoCopilotInstructions": {
+        "type": "boolean",
+        "default": true,
+        "description": "wear/strip 시 .github/copilot-instructions.md 자동 동기화"
+      },
+      "noa.copyOnWear": {
+        "type": "boolean",
+        "default": true,
+        "description": "wear 시 system prompt 클립보드 복사"
+      },
+      "noa.enforcementMode": {
+        "type": "string",
+        "enum": ["active", "passive", "off"],
+        "default": "active",
+        "description": "enforcement 동작 모드 (active=실제 차단, passive=표시만, off=비활성)"
+      },
+      "noa.defaultExportTarget": {
+        "type": "string",
+        "enum": ["claude", "gpt", "local", "copilot"],
+        "default": "claude",
+        "description": "클립보드 복사 시 기본 타겟"
+      }
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",

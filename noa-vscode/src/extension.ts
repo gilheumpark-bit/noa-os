@@ -13,8 +13,11 @@ import {
 import { registerChatParticipant } from "./providers/chat-participant";
 import { SessionManager } from "./noa/runtime/session";
 import { NoaRegistry } from "./noa/runtime/registry";
+import { CopilotInstructionsWriter } from "./injection/copilot-instructions-writer";
+import { exportForClaude } from "./noa/adapters/claude";
 
 const DEFAULT_SESSION = "default";
+const instructionsWriter = new CopilotInstructionsWriter();
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("NOA Clothing Framework 활성화");
@@ -136,6 +139,16 @@ function registerWearWithSession(
       // 상태바 갱신
       updateStatusBar(statusBar, status);
       vscode.window.showInformationMessage(`👔 "${picked.label}" 입었습니다.`);
+
+      // 경로 A: Copilot Instructions 자동 동기화
+      instructionsWriter.sync(session).catch(() => {});
+
+      // 경로 C: 클립보드 복사
+      if (vscode.workspace.getConfiguration("noa").get("copyOnWear", true) && session.resolved) {
+        const prompt = exportForClaude(session.resolved);
+        vscode.env.clipboard.writeText(prompt);
+        statusBar.tooltip = "NOA 정책이 클립보드에 복사됨";
+      }
     } catch (e) {
       vscode.window.showErrorMessage(
         `Wear 실패: ${e instanceof Error ? e.message : String(e)}`
