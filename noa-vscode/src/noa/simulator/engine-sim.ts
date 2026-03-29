@@ -451,7 +451,18 @@ export class EngineSimulator {
       this.manager.createSession(sessionId);
 
       try {
-        this.manager.wear(sessionId, presetId);
+        const { rolledBack } = this.manager.wear(sessionId, presetId);
+        if (rolledBack) {
+          results.push({
+            scenarioId: scenario.id,
+            category: scenario.category,
+            presetId,
+            status: this.manager.getStatus(this.manager.getSession(sessionId)!),
+            checks: [{ field: "wear", expected: "success", actual: "rolled_back", pass: false }],
+            score: 0,
+          });
+          continue;
+        }
       } catch {
         results.push({
           scenarioId: scenario.id,

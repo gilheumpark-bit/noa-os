@@ -494,9 +494,10 @@ export class SessionManager {
 
     const status = this.getStatus(session);
 
-    // recompute 콜백: auto-fix 후 recompile → fresh status
+    // recompute 콜백: auto-fix 후 recompile → fresh status (감사 기록 포함)
     const recompute = () => {
       this.recompile(session);
+      session.ledger.record("RECOMPILE_AFTER_FIX", { sessionId });
       return this.getStatus(session);
     };
 
@@ -536,7 +537,11 @@ export class SessionManager {
       this.changeManager.markRolledBack(latest.id);
       session.ledger.record("ROLLBACK", { changeId: latest.id });
       return true;
-    } catch {
+    } catch (e) {
+      session.ledger.record("ROLLBACK_FAILED", {
+        changeId: latest.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       return false;
     }
   }
