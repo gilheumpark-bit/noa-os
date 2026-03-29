@@ -121,8 +121,63 @@ NOR Wardrobe    — .nor 파일 마켓플레이스
 
 ---
 
+## Visual Identity Guide
+
+### Color Palette
+
+| Role | Color | Hex | Usage |
+|------|-------|-----|-------|
+| **Primary** | Deep Navy | `#1a1a2e` | Background, header, gallery banner |
+| **Secondary** | Electric Blue | `#0f3460` | Accent borders, links |
+| **Accent** | Cyan Glow | `#16213e` | Hover states, highlights |
+| **Safety** | Warm Amber | `#e94560` | Deny, SEAL, BLOCK indicators |
+| **Success** | Emerald | `#0ead69` | ALLOW, PASSED, verified states |
+| **Text** | Pearl White | `#eaeaea` | Primary text on dark |
+| **Muted** | Slate Gray | `#7f8c8d` | Secondary text, descriptions |
+
+### Icon Concept
+
+**NOA 아이콘 (128x128 PNG):**
+- 옷걸이 실루엣 + AI 뉴런 패턴
+- 배경: `#1a1a2e` (Deep Navy)
+- 전경: `#0ead69` (Emerald) 그라디언트
+- 스타일: 미니멀, 단색, 둥근 모서리
+- VS Code Marketplace 가독성 확보 (작은 사이즈에서도 인식 가능)
+
+### Theme Application
+
+**Dark Theme (기본):**
+```
+Background:  #1a1a2e
+Surface:     #16213e
+Border:      #0f3460
+Text:        #eaeaea
+Accent:      #0ead69
+Danger:      #e94560
+```
+
+**Light Theme (대안):**
+```
+Background:  #f8f9fa
+Surface:     #ffffff
+Border:      #dee2e6
+Text:        #212529
+Accent:      #0f3460
+Danger:      #dc3545
+```
+
+### Badge Style
+
+배지는 `shields.io` 스타일 사용:
+- `flat` 스타일 (둥근 모서리 없음)
+- 색상: 버전=blue, 엔진=green, 테스트=brightgreen, 라이선스=yellow
+
+---
+
 ## 연관 자산
 
-- `NOA_CLOTHING_FRAMEWORK_DESIGN.md` — NOR의 기술 설계 원본 (NOA Clothing → NOR로 리브랜딩)
-- `NOA_BUSINESS_POSITION.md` — 사업 포지셔닝 문서
-- `noa_os_v28_core.py` — NOA 코어 엔진 (NOR의 런타임 기반)
+- `NOA_CLOTHING_FRAMEWORK_DESIGN.md` — 기술 설계 원본
+- `NOA_BUSINESS_POSITION.md` — 사업 포지셔닝
+- `noa-vscode/` — VS Code Extension 구현체 (v1.1.0)
+- `noa-vscode/README.md` — 제품 README (배지 + 아키텍처)
+- `noa-vscode/CONTRIBUTING.md` — 기여 가이드

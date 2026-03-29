@@ -20,6 +20,16 @@
     "Linters",
     "Other"
   ],
+  "keywords": [
+    "ai", "persona", "policy", "safety", "hallucination",
+    "copilot", "claude", "gpt", "noa", "verification",
+    "audit", "compliance", "llm", "prompt-engineering"
+  ],
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
+  "preview": true,
   "activationEvents": [
     "onLanguage:noa",
     "onCommand:noa.wear",
